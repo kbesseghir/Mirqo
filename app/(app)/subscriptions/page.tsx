@@ -1,0 +1,2 @@
+import{createClient}from'@/lib/supabase/server';import type{Subscription}from'@/types/database';import{SubscriptionsView}from'@/components/subscriptions/subscriptions-view';
+export default async function Page({searchParams}:{searchParams:{search?:string}}){const supabase=await createClient();const{data}=await supabase.from('subscriptions').select('*').order('renewal_date');return <SubscriptionsView subscriptions={(data??[])as Subscription[]} initialQuery={searchParams.search??''}/>}

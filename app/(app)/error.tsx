@@ -1,0 +1,3 @@
+'use client';
+import { AlertTriangle,RefreshCw } from 'lucide-react';
+export default function ErrorPage({reset}:{error:Error&{digest?:string};reset:()=>void}){return <div className="mx-auto grid min-h-[55vh] max-w-md place-items-center text-center"><div><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-red-50 text-red-500 dark:bg-red-950"><AlertTriangle size={23}/></span><h1 className="mt-5 text-xl font-bold">Something went wrong</h1><p className="mt-2 text-sm leading-6 text-slate-500">Mirqo could not load this page. Your data has not been changed.</p><button onClick={reset} className="mx-auto mt-6 flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"><RefreshCw size={15}/>Try again</button></div></div>}

@@ -1,0 +1,3 @@
+export type BillingCycle='monthly'|'yearly'|'trial'; export type SubscriptionStatus='active'|'trial'|'cancelled'|'expired';
+export interface Subscription {id:string;user_id:string;service_name:string;amount:number;currency:string;renewal_date:string;billing_cycle:BillingCycle;status:SubscriptionStatus;reminder_days_before:number;notes:string|null;source_type:'manual'|'text'|'screenshot';calendar_event_id:string|null;created_at:string;updated_at:string}
+export interface Profile {user_id:string;email:string|null;plan:'free'|'pro';is_pro:boolean;trial_started_at:string|null;trial_ends_at:string|null;activation_ends_at:string|null;preferred_currency:string}

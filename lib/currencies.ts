@@ -1,0 +1,1 @@
+export const SUPPORTED_CURRENCIES=['USD','EUR','GBP','QAR','AED','SAR','CAD','AUD','JPY','DZD']as const;export type SupportedCurrency=(typeof SUPPORTED_CURRENCIES)[number];export function isSupportedCurrency(value:string):value is SupportedCurrency{return SUPPORTED_CURRENCIES.includes(value as SupportedCurrency)}

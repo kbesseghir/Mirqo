@@ -1,0 +1,8 @@
+import type { Subscription } from '@/types/database';
+export function monthlyEquivalent(s:Subscription){if(s.status==='cancelled'||s.status==='expired')return 0;if(s.billing_cycle==='yearly')return Number(s.amount)/12;return Number(s.amount)}
+export function formatMoney(amount:number,currency='USD'){return new Intl.NumberFormat('en-US',{style:'currency',currency,maximumFractionDigits:2}).format(amount)}
+export function daysUntil(date:string){const today=new Date();today.setHours(0,0,0,0);const target=new Date(`${date}T00:00:00`);return Math.ceil((target.getTime()-today.getTime())/86400000)}
+
+export type CurrencyTotal={currency:string;monthly:number;yearly:number};
+export function totalsByCurrency(subscriptions:Subscription[]):CurrencyTotal[]{const values=new Map<string,number>();for(const subscription of subscriptions){const currency=subscription.currency.toUpperCase();values.set(currency,(values.get(currency)??0)+monthlyEquivalent(subscription))}return[...values.entries()].map(([currency,monthly])=>({currency,monthly,yearly:monthly*12})).sort((a,b)=>a.currency==='USD'?-1:b.currency==='USD'?1:a.currency.localeCompare(b.currency))}
+export function preferredCurrency(totals:CurrencyTotal[],requested?:string){const normalized=requested?.toUpperCase();return totals.some(total=>total.currency===normalized)?normalized!:totals.find(total=>total.currency==='USD')?.currency??totals[0]?.currency??'USD'}
