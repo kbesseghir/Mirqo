@@ -1,5 +1,4 @@
 import { LandingPage } from "@/components/landing/landing-page";
-import { BellRing } from "lucide-react";
 
 export default function Home() {
   return <LandingPage />;
@@ -47,8 +46,4 @@ export default function Home() {
     </main>
   );
   */
-}
-
-function Feature({ icon: Icon, label }: { icon: typeof BellRing; label: string }) {
-  return <div className="rounded-2xl border border-blue-100/80 bg-white/80 p-4 text-slate-700 shadow-sm backdrop-blur"><Icon size={20} className="text-blue-600" /><p className="mt-3 text-sm font-semibold">{label}</p></div>;
 }
