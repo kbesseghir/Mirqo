@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+
+[build.environment]
+  # This is intentionally public (it is used for canonical URLs and redirects).
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_APP_URL"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
