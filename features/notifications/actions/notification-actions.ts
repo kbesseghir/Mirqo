@@ -34,7 +34,7 @@ export async function markNotificationRead(value: NotificationItem): Promise<Act
 
   const { data } = await supabase
     .from('subscriptions')
-    .select('id,service_name,amount,currency,renewal_date,reminder_days_before,status')
+    .select('id,service_name,amount,currency,renewal_date,reminder_days_before,billing_cycle,billing_interval_months,commitment_type,status')
     .eq('id', parsed.data.subscription_id)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -66,7 +66,7 @@ export async function markAllNotificationsRead(values: NotificationItem[]): Prom
   const ids = [...new Set(parsed.data.map((value) => value.subscription_id))];
   const { data } = await supabase
     .from('subscriptions')
-    .select('id,service_name,amount,currency,renewal_date,reminder_days_before,status')
+    .select('id,service_name,amount,currency,renewal_date,reminder_days_before,billing_cycle,billing_interval_months,commitment_type,status')
     .eq('user_id', user.id)
     .in('id', ids);
 

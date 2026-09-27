@@ -1,15 +1,383 @@
-import Link from 'next/link';
-import { ArrowRight, Bell, Calendar, Check, ChevronRight, CreditCard, DollarSign, Gift, Plus, TrendingUp, Zap } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
-import { daysUntil, formatMoney, preferredCurrency, totalsByCurrency } from '@/lib/subscriptions';
-import type { Subscription } from '@/types/database';
-import { hasUnlimitedAccess } from '@/lib/plan';
+import Link from "next/link";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Clock3,
+  HandCoins,
+  History,
+  Plus,
+  Star,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { daysUntil, formatMoney, monthlyEquivalent, preferredCurrency, totalsByCurrency, withEffectiveRenewalDate } from "@/lib/subscriptions";
+import type { Subscription } from "@/types/database";
+import { ServiceLogo } from "@/components/subscriptions/service-logo";
+import { getLocale } from "@/lib/i18n/get-locale";
+import { getDictionary, type Dictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locale";
+import { format } from "@/lib/i18n/format";
+import { MonthlySnapshotCard } from "@/components/dashboard/monthly-snapshot-card";
+import { PwaInstallPrompt } from "@/components/pwa/install-prompt";
+import { logEvent } from "@/lib/analytics";
 
-type TimelineGroup={label:string;items:Subscription[]};
-function labels(days:number){if(days===0)return{short:'Today',long:"You'll be charged today",tone:'urgent'}as const;if(days===1)return{short:'Tomorrow',long:"You'll be charged tomorrow",tone:'urgent'}as const;if(days<=3)return{short:`In ${days} days`,long:`You'll be charged in ${days} days`,tone:'soon'}as const;if(days<=7)return{short:'This week',long:`Renews in ${days} days`,tone:'soon'}as const;if(days<=14)return{short:'Next week',long:`Renews in ${days} days`,tone:'calm'}as const;return{short:`In ${days} days`,long:`Renews in ${days} days`,tone:'calm'}as const}
-function groups(subs:Subscription[]){const result:TimelineGroup[]=[];const active=subs.filter(s=>s.status!=='cancelled'&&s.status!=='expired'&&daysUntil(s.renewal_date)>=0).sort((a,b)=>daysUntil(a.renewal_date)-daysUntil(b.renewal_date));const add=(label:string,items:Subscription[])=>{result.push({label,items})};add('Today',active.filter(s=>daysUntil(s.renewal_date)===0));add('Tomorrow',active.filter(s=>daysUntil(s.renewal_date)===1));add('This week',active.filter(s=>daysUntil(s.renewal_date)>=2&&daysUntil(s.renewal_date)<=7));add('Next week',active.filter(s=>daysUntil(s.renewal_date)>=8&&daysUntil(s.renewal_date)<=14));add('This month',active.filter(s=>daysUntil(s.renewal_date)>=15&&daysUntil(s.renewal_date)<=31));add('Later',active.filter(s=>daysUntil(s.renewal_date)>31));return result}
-export default async function Dashboard(){const supabase=await createClient();const[{data},{data:{user}},{data:profile}]=await Promise.all([supabase.from('subscriptions').select('*').order('renewal_date'),supabase.auth.getUser(),supabase.from('profiles').select('preferred_currency,plan,is_pro,trial_ends_at,activation_ends_at').maybeSingle()]);const subscriptions=(data??[])as Subscription[];if(!subscriptions.length)return <EmptyDashboard/>;const active=subscriptions.filter(s=>s.status==='active'||s.status==='trial');const upcoming=active.filter(s=>daysUntil(s.renewal_date)>=0).sort((a,b)=>daysUntil(a.renewal_date)-daysUntil(b.renewal_date));const next=upcoming[0];const totals=totalsByCurrency(active),currency=preferredCurrency(totals,profile?.preferred_currency),primary=totals.find(total=>total.currency===currency)??{currency,monthly:0,yearly:0};const trialCount=active.filter(s=>s.status==='trial').length;const name=user?.user_metadata.full_name?.toString()||user?.email?.split('@')[0]||'there';const isPro=hasUnlimitedAccess(profile);return <div className="mx-auto max-w-2xl lg:max-w-none"><div className="mb-6 flex items-center justify-between"><div><p className="text-xs font-medium text-slate-500">Good morning</p><h1 className="mt-0.5 text-xl font-bold capitalize tracking-tight text-slate-950 sm:text-2xl">{name}</h1></div><Link href="/subscriptions/new" className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-200 active:scale-95 sm:hidden"><Plus size={15}/></Link></div>{next&&<NextRenewal sub={next}/>}<div className="mb-7 mt-5 grid grid-cols-2 gap-3 sm:mb-9 sm:mt-7 lg:grid-cols-4"><Stat href={`/analytics?currency=${currency}`} icon={<DollarSign size={15}/>} label="Monthly" value={formatMoney(primary.monthly,currency)} sub={totals.length>1?currency+" - "+totals.length+" currencies":active.length+" subscriptions"}/><Stat href={`/analytics?currency=${currency}`} icon={<TrendingUp size={15}/>} label="Yearly" value={formatMoney(primary.yearly,currency)} sub={totals.length>1?`${currency} selected`:"Estimated annual"}/><Stat href="/subscriptions" icon={<CreditCard size={15}/>} label="Active" value={String(active.length)} sub={`${subscriptions.filter(s=>s.status==='cancelled').length} cancelled`}/><Stat href="/subscriptions" icon={<Gift size={15}/>} label="Trials" value={String(trialCount)} sub="Renewing soon"/></div>{totals.length>1&&<section className="mb-7 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:mb-9"><div className="flex items-start justify-between gap-4"><div><h2 className="text-sm font-bold text-slate-900">Spending by currency</h2><p className="mt-1 text-xs text-slate-500">Totals stay separate. Mirqo does not assume exchange rates.</p></div><Link href={`/analytics?currency=${currency}`} className="shrink-0 text-xs font-semibold text-blue-600">Analyze</Link></div><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.map(total=><Link key={total.currency} href={`/analytics?currency=${total.currency}`} className="rounded-xl border border-blue-100 bg-white px-3 py-3"><span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{total.currency} monthly</span><span className="mt-1 block text-base font-bold">{formatMoney(total.monthly,total.currency)}</span></Link>)}</div></section>}<section className="mb-7 sm:mb-9"><div className="mb-5 flex items-center justify-between"><h2 className="text-base font-bold tracking-tight">Upcoming Renewals</h2><Link href="/subscriptions" className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">View all <ChevronRight size={12}/></Link></div><div className="space-y-6">{groups(subscriptions).map(group=><Timeline key={group.label} group={group}/>)}</div>{!upcoming.length&&<p className="rounded-2xl border border-slate-200 py-10 text-center text-sm text-slate-500">No upcoming renewals.</p>}</section><section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,.04)] sm:p-6"><div className="mb-5 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Monthly Spending</h2><p className="mt-0.5 text-xs text-slate-500">{currency} recurring estimate</p></div><Link href={`/analytics?currency=${currency}`} className="flex items-center gap-1 text-xs font-semibold text-blue-600">Full report <ChevronRight size={11}/></Link></div><div className="relative h-40 overflow-hidden"><svg viewBox="0 0 1000 160" preserveAspectRatio="none" className="h-full w-full" role="img" aria-label="Current recurring spending estimate"><defs><linearGradient id="dashboard-spend" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563eb" stopOpacity="0.13"/><stop offset="100%" stopColor="#2563eb" stopOpacity="0"/></linearGradient></defs><path d="M0 105 C120 112 180 116 260 112 C340 105 390 73 485 82 C570 90 620 102 700 82 C790 59 860 82 1000 58 L1000 160 L0 160 Z" fill="url(#dashboard-spend)"/><path d="M0 105 C120 112 180 116 260 112 C340 105 390 73 485 82 C570 90 620 102 700 82 C790 59 860 82 1000 58" fill="none" stroke="#2563eb" strokeWidth="2.5" vectorEffect="non-scaling-stroke"/><path d="M0 135 H1000 M0 95 H1000 M0 55 H1000 M0 15 H1000" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 5" vectorEffect="non-scaling-stroke"/></svg><div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between text-[10px] text-slate-400"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span></div></div></section>{!isPro&&<Link href="/upgrade" className="group flex items-center gap-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 p-4 transition hover:from-blue-50 sm:p-5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600"><Zap size={16}/></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Upgrade to Pro</span><span className="mt-0.5 block text-xs text-slate-500">Unlimited subscriptions, smart detection, Google Calendar sync</span></span><ChevronRight size={16} className="shrink-0 text-slate-400 transition group-hover:translate-x-0.5"/></Link>}</div>}
-function NextRenewal({sub}:{sub:Subscription}){const days=daysUntil(sub.renewal_date);const copy=labels(days);const styles={urgent:{pill:'border-red-100 bg-red-50 text-red-600',pulse:'bg-red-500',glow:'shadow-[0_0_0_1px_rgba(239,68,68,.08),0_20px_60px_rgba(239,68,68,.08)]',cta:'bg-red-500 hover:bg-red-600'},soon:{pill:'border-amber-100 bg-amber-50 text-amber-600',pulse:'bg-amber-400',glow:'shadow-[0_0_0_1px_rgba(245,158,11,.08),0_20px_60px_rgba(245,158,11,.06)]',cta:'bg-amber-500 hover:bg-amber-600'},calm:{pill:'border-blue-100 bg-blue-50 text-blue-600',pulse:'bg-blue-600',glow:'shadow-[0_0_0_1px_rgba(37,99,235,.06),0_20px_60px_rgba(37,99,235,.07)]',cta:'bg-blue-600 hover:bg-blue-700'}}[copy.tone];return <div className={`relative overflow-hidden rounded-3xl bg-white ${styles.glow}`}><div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white via-white to-slate-50/80"/><div className="relative p-6 sm:p-8"><div className="mb-6 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Next Renewal</p><span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold ${styles.pill}`}><span className={`h-1.5 w-1.5 animate-pulse rounded-full ${styles.pulse}`}/>{copy.short}</span></div><div className="mb-6 flex items-center gap-5"><span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-blue-600 text-2xl font-black text-white shadow-lg shadow-blue-200 sm:h-20 sm:w-20 sm:text-3xl">{sub.service_name[0]?.toUpperCase()}</span><div className="min-w-0 flex-1"><h2 className="truncate text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{sub.service_name}</h2><p className="mt-1 text-sm text-slate-500">{copy.long}</p><div className="mt-2 flex items-baseline gap-1"><span className="text-xl font-bold sm:text-2xl">{formatMoney(Number(sub.amount),sub.currency)}</span><span className="text-sm text-slate-500">/ {sub.billing_cycle==='yearly'?'year':'month'}</span></div></div></div>{days>0&&days<=30&&<div className="mb-6"><div className="mb-1.5 flex justify-between text-xs text-slate-500"><span>Current cycle</span><span>{sub.renewal_date}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${styles.pulse}`} style={{width:`${100-Math.min(100,days/30*100)}%`}}/></div></div>}<div className="flex items-center gap-3"><Link href={`/subscriptions/${sub.id}`} className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-md active:scale-95 ${styles.cta}`}>Manage <ArrowRight size={14}/></Link><Link href="/notifications" className="flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-50"><Bell size={14}/>Remind me</Link></div></div></div>}
-function Stat({href,icon,label,value,sub}:{href:string;icon:React.ReactNode;label:string;value:string;sub:string}){return <Link href={href} className="group w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(0,0,0,.07)] sm:p-5"><span className="mb-3 flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-blue-50 group-hover:text-blue-600">{icon}</span><span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</span><span className="block truncate text-xl font-bold tracking-tight">{value}</span><span className="mt-0.5 block text-xs text-slate-500">{sub}</span></Link>}
-function Timeline({group}:{group:TimelineGroup}){return <div><div className="mb-3 flex items-center gap-3"><p className="whitespace-nowrap text-xs font-bold uppercase tracking-widest text-slate-500">{group.label}</p><div className="h-px flex-1 bg-slate-200"/><span className="text-xs text-slate-500">{group.items.length}</span></div><div className="space-y-2">{group.items.length===0&&<div className="rounded-2xl border border-dashed border-slate-200 px-4 py-4 text-xs text-slate-400">No renewals in this period</div>}{group.items.map(sub=>{const days=daysUntil(sub.renewal_date);const badge=days<=3?'bg-red-50 text-red-500':days<=7?'bg-amber-50 text-amber-500':'bg-slate-100 text-slate-500';return <Link key={sub.id} href={`/subscriptions/${sub.id}`} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 transition hover:-translate-y-px hover:shadow-[0_2px_12px_rgba(0,0,0,.06)] sm:gap-4"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-600 font-bold text-white">{sub.service_name[0]?.toUpperCase()}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{sub.service_name}</span><span className="mt-0.5 block text-xs capitalize text-slate-500">{sub.billing_cycle}</span></span><span className={`hidden rounded-full px-2.5 py-1 text-[11px] font-bold sm:inline-flex ${badge}`}>{labels(days).short}</span><span className="text-right"><span className="block text-sm font-bold">{formatMoney(Number(sub.amount),sub.currency)}</span><span className="block text-[10px] text-slate-500">{sub.renewal_date}</span></span><ChevronRight size={14} className="hidden text-slate-400 opacity-0 group-hover:opacity-100 sm:block"/></Link>})}</div></div>}
-function EmptyDashboard(){return <div className="flex flex-col items-center justify-center px-6 py-16 text-center sm:py-24"><div className="relative mb-8"><div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-50 to-cyan-50 shadow-inner"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100"><Calendar size={28} className="text-blue-600"/></div></div><div className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-emerald-100 text-emerald-600"><Check size={10}/></div><div className="absolute -bottom-1 -left-2 h-4 w-4 rounded-full border-2 border-white bg-amber-100"/></div><h2 className="mb-3 text-xl font-bold tracking-tight sm:text-2xl">Nothing to track yet</h2><p className="mb-8 max-w-xs text-sm leading-relaxed text-slate-500">Add your first subscription and Mirqo will make sure you never get surprised by a charge again.</p><Link href="/subscriptions/new" className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-blue-200"><Plus size={16}/>Add your first subscription</Link><p className="mt-4 text-xs text-slate-500">Takes 30 seconds - works with any service</p></div>}
+type TimelineGroup = { label: string; items: Subscription[] };
+type T = Dictionary["dashboard"];
+
+function renewalLabel(days: number, t: T) {
+  if (days === 0) return t.today;
+  if (days === 1) return t.tomorrow;
+  return format(t.inDays, { days });
+}
+
+function renewalTone(days: number) {
+  if (days <= 2) return "font-bold text-red-600";
+  if (days <= 5) return "font-bold text-orange-600";
+  return "font-semibold text-emerald-600";
+}
+
+function timelineGroups(subscriptions: Subscription[], t: T) {
+  const active = subscriptions
+    .filter((subscription) => subscription.status !== "cancelled" && subscription.status !== "expired" && daysUntil(subscription.renewal_date) >= 0)
+    .sort((a, b) => daysUntil(a.renewal_date) - daysUntil(b.renewal_date));
+  const groups: TimelineGroup[] = [
+    { label: t.thisWeek, items: active.filter((subscription) => daysUntil(subscription.renewal_date) <= 7) },
+    { label: t.nextWeek, items: active.filter((subscription) => daysUntil(subscription.renewal_date) >= 8 && daysUntil(subscription.renewal_date) <= 14) },
+    { label: t.thisMonth, items: active.filter((subscription) => daysUntil(subscription.renewal_date) >= 15 && daysUntil(subscription.renewal_date) <= 31) },
+  ];
+  return groups.filter((group) => group.items.length > 0);
+}
+
+export default async function Dashboard() {
+  const locale = await getLocale();
+  const t = getDictionary(locale).dashboard;
+  const supabase = await createClient();
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthEnd = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
+  const [{ data, error: subscriptionsError }, { data: { user } }, { data: profile }, { data: incomes, error: incomeError }, { data: spending, error: spendingError }, {data:paymentRows,error:paymentsError}] = await Promise.all([
+    supabase.from("subscriptions").select("*").order("renewal_date"),
+    supabase.auth.getUser(),
+    supabase.from("profiles").select("preferred_currency,plan,is_pro,trial_ends_at,activation_ends_at").maybeSingle(),
+    supabase.from("monthly_income").select("amount,currency").eq("month", month),
+    supabase.from("spending_entries").select("amount,currency,category").gte("spent_at", month).lt("spent_at", monthEnd),
+    supabase.from("commitment_payments").select("amount,currency,subscription_id").gte("paid_at",month).lt("paid_at",monthEnd),
+  ]);
+  if (user) { void logEvent(supabase, user.id, "dashboard_view"); void logEvent(supabase, user.id, "user_returned"); }
+  const storedSubscriptions = (data ?? []) as Subscription[];
+  const attentionItems = storedSubscriptions.filter((subscription) => (subscription.commitment_type === "bill" || subscription.commitment_type === "bnpl") && subscription.status === "active" && daysUntil(subscription.renewal_date) <= 3).sort((a,b)=>daysUntil(a.renewal_date)-daysUntil(b.renewal_date));
+  const subscriptions = storedSubscriptions.map((subscription) =>
+    withEffectiveRenewalDate(subscription),
+  );
+  const active = subscriptions.filter((subscription) => subscription.status === "active" || subscription.status === "trial");
+  const spendable = active.filter((subscription) => subscription.commitment_type !== "debt" || subscription.debt_direction !== "owed_to_me");
+  const debts = active.filter((subscription) => subscription.commitment_type === "debt");
+  const upcoming = active.filter((subscription) => daysUntil(subscription.renewal_date) >= 0).sort((a, b) => daysUntil(a.renewal_date) - daysUntil(b.renewal_date));
+  const next = upcoming[0];
+  const totals = totalsByCurrency(spendable);
+  const currency = preferredCurrency(totals, profile?.preferred_currency);
+  const primary = totals.find((total) => total.currency === currency) ?? { currency, monthly: 0, yearly: 0 };
+  const snapshotCurrency = profile?.preferred_currency ?? "USD";
+  const snapshotIncome = incomes?.find(item => item.currency === snapshotCurrency);
+  const outgoingCommitments = active.filter(item => item.commitment_type !== "debt" || item.debt_direction !== "owed_to_me");
+  const snapshotRecurring = outgoingCommitments.filter(item => item.currency === snapshotCurrency).reduce((sum, item) => sum + monthlyEquivalent(item), 0);
+  const snapshotPaid = (paymentRows??[]).filter(item=>item.currency===snapshotCurrency && storedSubscriptions.find(subscription=>subscription.id===item.subscription_id)?.debt_direction!=="owed_to_me").reduce((sum,item)=>sum+Number(item.amount),0);
+  const snapshot = <MonthlySnapshotCard compact locale={locale} currency={snapshotCurrency} selectedMonth={month.slice(0, 7)} income={Number(snapshotIncome?.amount ?? 0)} recurring={snapshotRecurring} actualPaid={snapshotPaid} spending={(spending ?? []) as { amount: number; category: string; currency: string }[]} loadError={incomeError || spendingError || paymentsError || subscriptionsError ? "Snapshot unavailable" : undefined} />;
+  if (!subscriptions.length) return <div className="space-y-6"><div className="max-w-xl">{snapshot}</div><EmptyDashboard t={t} /></div>;
+  const trials = active.filter((subscription) => subscription.status === "trial").length;
+  const dueThisWeek = upcoming.filter((subscription) => daysUntil(subscription.renewal_date) <= 7).length;
+  const recent = [...subscriptions]
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 4);
+  const renewalGroups = timelineGroups(subscriptions, t);
+  const name = user?.user_metadata.full_name?.toString() || user?.email?.split("@")[0] || "there";
+  const billingLabels = getDictionary(locale).common;
+
+  return (
+    <div className="mx-auto max-w-[1480px]">
+      <header className="mb-7 flex items-end justify-between gap-4">
+        <div>
+          <p className="page-kicker">{t.yourSpace}</p>
+          <h1 className="page-title capitalize">{t.hello}, {name}</h1>
+          <p className="page-description">{t.everythingClear}</p>
+        </div>
+      </header>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-800">
+        <span>MYRQO Beta — All Pro features are unlocked during early access.</span>
+        <PwaInstallPrompt />
+      </div>
+
+      {attentionItems.length > 0 && <NeedsAttention items={attentionItems} locale={locale} commitmentTypes={getDictionary(locale).commitmentTypes} />}
+
+      <div className="metric-strip mt-7 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <SummaryCard primary label={t.monthlyRecurring} value={formatMoney(primary.monthly, currency)} detail={`${currency} · ${active.length} ${t.active}`} href={`/analytics?currency=${currency}`} />
+        <SummaryCard label={t.annualProjected} value={formatMoney(primary.yearly, currency)} detail={t.basedOnCurrentPlans} href={`/analytics?currency=${currency}`} />
+        <SummaryCard label={t.activeSubscriptions} value={String(active.length)} detail={`${subscriptions.length} ${t.trackedTotal}`} href="/subscriptions" />
+        <SummaryCard label={t.nextPayment} value={next ? formatMoney(Number(next.amount), next.currency) : "—"} detail={next ? `${next.service_name} · ${renewalLabel(daysUntil(next.renewal_date), t)}` : t.noUpcomingRenewal} href={next ? `/subscriptions/${next.id}` : "/calendar"} />
+      </div>
+
+      <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,.72fr)]">
+        <section className="workspace-section overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
+            <div><h2 className="text-base font-bold">{locale === "ar" ? "المدفوعات القادمة" : "Upcoming payments"}</h2><p className="mt-1 text-xs text-slate-500">{locale === "ar" ? "الاشتراكات والفواتير والأقساط القادمة." : "Subscriptions, bills and installments coming up."}</p></div>
+            <Link href="/calendar" className="inline-flex min-h-10 items-center gap-1 rounded-full bg-slate-100 px-4 text-xs font-bold text-slate-600">{t.calendarView} <ChevronRight size={13} className="rtl:rotate-180" /></Link>
+          </div>
+          <div className="p-4 sm:p-6">
+            <div className="space-y-6">{renewalGroups.map((group) => <Timeline key={group.label} group={group} t={t} billingLabels={billingLabels} commitmentTypes={getDictionary(locale).commitmentTypes} />)}</div>
+            {!renewalGroups.length && <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center"><p className="text-sm font-semibold">{t.noRenewals31}</p><p className="mt-1 text-xs text-slate-500">{t.laterRenewals}</p></div>}
+          </div>
+        </section>
+
+        <div className="grid gap-4">
+           {snapshot}
+           <Insights dueThisWeek={dueThisWeek} trials={trials} t={t} />
+           {debts.length > 0 && <DebtsCard debts={debts} t={t} />}
+          <RecentActivity subscriptions={recent} t={t} locale={locale} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NeedsAttention({ items, locale, commitmentTypes }: { items: Subscription[]; locale: Locale; commitmentTypes: Dictionary["commitmentTypes"] }) {
+  const ar = locale === "ar";
+  return <section className="mt-4 overflow-hidden rounded-[24px] border border-amber-200/80 bg-white shadow-[0_10px_30px_rgba(15,23,42,.04)]"><div className="flex items-center gap-3 border-b border-amber-100 bg-amber-50/60 px-5 py-4"><span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-700"><AlertTriangle size={17}/></span><div><h2 className="text-sm font-bold">{ar ? "يحتاج انتباهك" : "Needs attention"}</h2><p className="mt-0.5 text-xs text-slate-500">{ar ? "مدفوعات مستحقة أو قريبة جدًا" : "Due or overdue payments that need a quick check"}</p></div></div><div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">{items.slice(0,6).map(item=>{const days=daysUntil(item.renewal_date);return <Link key={item.id} href={`/subscriptions/${item.id}`} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3 transition hover:border-amber-200 hover:bg-amber-50/40"><ServiceLogo name={item.service_name} className="h-10 w-10 rounded-xl"/><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{item.service_name}</span><span className="mt-0.5 block text-[11px] text-slate-500">{commitmentTypes[item.commitment_type]}</span></span><span className="text-end"><strong className="block text-sm">{formatMoney(Number(item.amount),item.currency)}</strong><small className={days<0?"font-bold text-red-600":"font-bold text-amber-600"}>{days<0?(ar?"متأخر":"Overdue"):days===0?(ar?"اليوم":"Today"):`${days}d`}</small></span></Link>})}</div></section>;
+}
+
+function SummaryCard({
+  label,
+  value,
+  detail,
+  href,
+  primary = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  href: string;
+  primary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group min-h-32 p-4 transition hover:-translate-y-0.5 hover:border-slate-300 sm:p-5 ${
+        primary
+          ? "text-slate-950"
+          : "text-slate-950"
+      }`}
+    >
+      <span className={`text-xs font-semibold ${primary ? "text-blue-700" : "text-slate-500"}`}>{label}</span>
+      <span className="mt-4 block truncate text-2xl font-black tracking-tight sm:text-3xl">{value}</span>
+      <span className={`mt-2 block truncate text-xs ${primary ? "text-slate-500" : "text-slate-400"}`}>{detail}</span>
+    </Link>
+  );
+}
+
+function Insights({
+  dueThisWeek,
+  trials,
+  t,
+}: {
+  dueThisWeek: number;
+  trials: number;
+  t: T;
+}) {
+  return (
+    <section className="workspace-section overflow-hidden">
+      <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+        <h2 className="text-base font-bold">{t.insights}</h2>
+        <p className="mt-1 text-xs text-slate-500">{t.insightsDesc}</p>
+      </div>
+      <div className="divide-y divide-slate-100 px-5 sm:px-6">
+        <InsightRow
+          icon={dueThisWeek > 1 ? AlertTriangle : CalendarDays}
+          tone={dueThisWeek > 1 ? "amber" : "blue"}
+          title={dueThisWeek > 1 ? t.busyRenewalWeek : t.renewalsThisWeek}
+          detail={dueThisWeek === 0 ? t.noDueThisWeek : dueThisWeek === 1 ? t.dueThisWeekOne : format(t.dueThisWeekMany, { count: dueThisWeek })}
+          href="/calendar"
+          action={t.viewCalendar}
+        />
+        <InsightRow
+          icon={Star}
+          tone="violet"
+          title={t.freeTrials}
+          detail={trials === 0 ? t.noActiveTrials : trials === 1 ? t.trialsOne : format(t.trialsMany, { count: trials })}
+          href="/subscriptions?filter=active"
+          action={t.reviewPlans}
+        />
+      </div>
+    </section>
+  );
+}
+
+const DEBT_CHART_COLORS = ["#F59E0B", "#8B5CF6", "#06B6D4", "#EF4444", "#10B981", "#2563EB"];
+
+function DebtsCard({ debts, t }: { debts: Subscription[]; t: T }) {
+  const currencies = new Set(debts.map((debt) => debt.currency));
+  const singleCurrency = currencies.size === 1;
+  const total = debts.reduce((sum, debt) => sum + Number(debt.amount), 0);
+  const owedByMe = debts.filter((debt) => debt.debt_direction !== "owed_to_me").reduce((sum,debt)=>sum+Number(debt.remaining_balance ?? debt.original_amount ?? debt.amount),0);
+  const owedToMe = debts.filter((debt) => debt.debt_direction === "owed_to_me").reduce((sum,debt)=>sum+Number(debt.remaining_balance ?? debt.original_amount ?? debt.amount),0);
+  const debtCurrency = debts[0]?.currency ?? "USD";
+  let cursor = 0;
+  const segments = singleCurrency
+    ? debts.map((debt, index) => {
+        const share = total > 0 ? (Number(debt.amount) / total) * 360 : 0;
+        const start = cursor;
+        cursor += share;
+        return { color: DEBT_CHART_COLORS[index % DEBT_CHART_COLORS.length], start, end: cursor };
+      })
+    : [];
+  const gradient = segments.length
+    ? `conic-gradient(${segments.map((segment) => `${segment.color} ${segment.start}deg ${segment.end}deg`).join(",")})`
+    : "#E2E8F0";
+
+  return (
+    <section className="workspace-section overflow-hidden">
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
+        <div><h2 className="text-base font-bold">{t.personalDebts}</h2><p className="mt-1 text-xs text-slate-500">{t.personalDebtsDesc}</p></div>
+        <HandCoins size={18} className="text-amber-500" />
+      </div>
+      <div className="p-5 sm:p-6">
+        {singleCurrency && <div className="mb-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-orange-50 p-4"><p className="text-[10px] font-bold uppercase tracking-wider text-orange-600">You owe</p><strong className="mt-2 block text-lg text-orange-800">{formatMoney(owedByMe,debtCurrency)}</strong></div><div className="rounded-2xl bg-emerald-50 p-4"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Owed to you</p><strong className="mt-2 block text-lg text-emerald-800">{formatMoney(owedToMe,debtCurrency)}</strong></div></div>}
+        <div className="flex items-center gap-5">
+          <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full" style={{ background: gradient }}>
+            <div className="grid h-[62px] w-[62px] place-items-center rounded-full bg-white text-center">
+              <div>
+                <p className="text-xl font-black">{debts.length}</p>
+                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400">{t.debtsCountLabel}</p>
+              </div>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1 space-y-2.5">
+            {debts.map((debt, index) => (
+              <Link key={debt.id} href={`/subscriptions/${debt.id}`} className="flex items-center gap-2 text-xs transition hover:text-blue-600">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: singleCurrency ? DEBT_CHART_COLORS[index % DEBT_CHART_COLORS.length] : "#CBD5E1" }} />
+                <span className="min-w-0 flex-1 truncate font-semibold text-slate-700">{debt.counterparty_name || debt.service_name}</span>
+                <span className="shrink-0 font-black text-slate-900">{formatMoney(Number(debt.amount), debt.currency)}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+        {!singleCurrency && <p className="mt-4 text-[11px] text-slate-400">{t.debtsMixedCurrency}</p>}
+      </div>
+    </section>
+  );
+}
+
+function InsightRow({
+  icon: Icon,
+  tone,
+  title,
+  detail,
+  href,
+  action,
+}: {
+  icon: typeof Star;
+  tone: "blue" | "amber" | "violet" | "emerald";
+  title: string;
+  detail: string;
+  href: string;
+  action: string;
+}) {
+  const tones = {
+    blue: "bg-blue-50 text-blue-600",
+    amber: "bg-amber-50 text-amber-600",
+    violet: "bg-violet-50 text-violet-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+  };
+  return (
+    <div className="flex gap-3 py-4">
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tones[tone]}`}><Icon size={17} /></span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-bold">{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>
+        <Link href={href} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600">{action} <ChevronRight size={12} className="rtl:rotate-180" /></Link>
+      </div>
+    </div>
+  );
+}
+
+function RecentActivity({ subscriptions, t, locale }: { subscriptions: Subscription[]; t: T; locale: Locale }) {
+  return (
+    <section className="workspace-section overflow-hidden">
+      <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+        <h2 className="text-base font-bold">{t.recentActivity}</h2>
+        <p className="mt-1 text-xs text-slate-500">{t.recentActivityDesc}</p>
+      </div>
+      <div className="divide-y divide-slate-100 px-5 sm:px-6">
+        {subscriptions.map((subscription) => {
+          const activity = activityFor(subscription, t);
+          const ActivityIcon = activity.icon;
+          return (
+            <Link key={subscription.id} href={`/subscriptions/${subscription.id}`} className="flex items-center gap-3 py-4 transition hover:bg-slate-50/70">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${activity.tone}`}><ActivityIcon size={16} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold">{activity.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500">{activity.detail}</span>
+              </span>
+              <span className="shrink-0 text-[11px] font-medium text-slate-400">{relativeActivityDate(subscription.updated_at, t, locale)}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function activityFor(subscription: Subscription, t: T) {
+  if (subscription.status === "cancelled") {
+    return {
+      icon: Check,
+      tone: "bg-amber-50 text-amber-600",
+      title: `${subscription.service_name} ${t.markedCancelled}`,
+      detail: t.trackingPaused,
+    };
+  }
+  const wasUpdated = new Date(subscription.updated_at).getTime() - new Date(subscription.created_at).getTime() > 60_000;
+  if (wasUpdated) {
+    return {
+      icon: History,
+      tone: "bg-violet-50 text-violet-600",
+      title: `${subscription.service_name} ${t.updated}`,
+      detail: `${t.renewsOn} ${subscription.renewal_date}`,
+    };
+  }
+  return {
+    icon: Clock3,
+    tone: "bg-blue-50 text-blue-600",
+    title: `${subscription.service_name} ${t.added}`,
+    detail: subscription.source_type === "screenshot" ? t.fromScreenshot : subscription.source_type === "text" ? t.fromText : t.addedManually,
+  };
+}
+
+function relativeActivityDate(value: string, t: T, locale: Locale) {
+  const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
+  const hours = Math.floor(elapsed / 3_600_000);
+  if (hours < 1) return t.justNow;
+  if (hours < 24) return format(t.hoursShort, { h: hours });
+  const days = Math.floor(hours / 24);
+  if (days === 1) return t.yesterday;
+  if (days < 7) return format(t.daysShort, { d: days });
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+function Timeline({ group, t, billingLabels, commitmentTypes }: { group: TimelineGroup; t: T; billingLabels: Dictionary["common"]; commitmentTypes: Dictionary["commitmentTypes"] }) {
+  return <div><div className="mb-2.5 flex items-center gap-3"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">{group.label}</p><div className="h-px flex-1 bg-slate-100" /><span className="text-[10px] font-bold text-slate-400">{group.items.length}</span></div><div className="grid gap-2 lg:grid-cols-2">{group.items.map((subscription) => { const days = daysUntil(subscription.renewal_date); const billingLabel = subscription.billing_cycle === 'yearly' ? billingLabels.yearly : subscription.billing_cycle === 'trial' ? billingLabels.trial : billingLabels.monthly; const typeSuffix = subscription.commitment_type !== 'subscription' ? ' · ' + commitmentTypes[subscription.commitment_type] : ''; return <Link key={subscription.id} href={`/subscriptions/${subscription.id}`} className="group flex items-center gap-3 rounded-2xl bg-slate-50 p-3.5 transition hover:bg-blue-50/60"><ServiceLogo name={subscription.service_name} className="h-10 w-10 rounded-xl" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{subscription.service_name}</span><span className="mt-0.5 block text-[11px] text-slate-500"><span className={renewalTone(days)}>{renewalLabel(days, t)}</span> · {billingLabel}{typeSuffix}</span></span><span className="text-right"><span className="block text-sm font-black">{formatMoney(Number(subscription.amount), subscription.currency)}</span><span className="text-[10px] text-slate-400">{subscription.renewal_date}</span></span><ChevronRight size={14} className="text-slate-300 rtl:rotate-180" /></Link>; })}</div></div>;
+}
+
+function CommitmentBreakdown({ subscriptions, currency, t, commitmentTypes }: { subscriptions: Subscription[]; currency: string; t: T; commitmentTypes: Dictionary["commitmentTypes"] }) {
+  const rows = Array.from(new Set(subscriptions.map((subscription) => subscription.commitment_type))).map((type) => ({
+    type,
+    total: subscriptions.filter((subscription) => subscription.commitment_type === type && subscription.currency === currency).reduce((sum, subscription) => sum + monthlyEquivalent(subscription), 0),
+  })).filter((row) => row.total > 0).sort((a, b) => b.total - a.total);
+  if (!rows.length) return null;
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
+  return <section className="rounded-[26px] border border-slate-200/80 bg-white p-5 shadow-[0_12px_35px_rgba(15,23,42,.05)]"><div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-bold">{t.monthlyCommitments}</h2><p className="mt-1 text-xs text-slate-500">{t.monthlyCommitmentsDesc}</p></div><span className="text-sm font-black">{formatMoney(total, currency)}</span></div><div className="mt-5 space-y-3">{rows.map((row) => { const share = total ? Math.round((row.total / total) * 100) : 0; return <div key={row.type}><div className="mb-1.5 flex items-center justify-between text-xs"><span className="font-semibold">{commitmentTypes[row.type]}</span><span className="font-bold text-slate-500">{formatMoney(row.total, currency)}</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max(4, share)}%` }} /></div></div>; })}</div></section>;
+}
+
+function EmptyDashboard({ t }: { t: T }) {
+  return <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center px-6 text-center"><div className="grid h-24 w-24 place-items-center rounded-[30px] bg-gradient-to-br from-blue-600 to-indigo-500 text-white shadow-xl shadow-blue-200"><CalendarDays size={30} /></div><h2 className="mt-8 text-2xl font-bold tracking-tight">{t.calmStarts}</h2><p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">{t.calmStartsDesc}</p><Link href="/subscriptions/new" className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-bold text-white"><Plus size={16} /> {t.addFirstSubscription}</Link><span className="mt-5 inline-flex items-center gap-2 text-xs text-slate-400"><Check size={14} className="text-emerald-500" /> {t.freeUpTo3}</span></div>;
+}

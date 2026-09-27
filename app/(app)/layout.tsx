@@ -21,7 +21,7 @@ export default async function ProtectedLayout({
     await Promise.all([
       supabase
         .from('profiles')
-        .select('plan,is_pro,trial_ends_at,activation_ends_at')
+        .select('plan,is_pro,trial_ends_at,activation_ends_at,payday_day')
         .eq('user_id', user.id)
         .maybeSingle(),
       supabase
@@ -36,6 +36,8 @@ export default async function ProtectedLayout({
 
   const notifications = dueRenewalNotifications(
     (subscriptions ?? []) as RenewalNotification[],
+    new Date(),
+    profile?.payday_day ?? null,
   );
   const readKeys = (reads ?? []).map(
     (read) =>

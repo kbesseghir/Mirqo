@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { AlertCircle, CalendarDays, Check, Loader2, X } from "lucide-react";
+import { useLocale } from "@/components/locale-provider";
+import { format } from "@/lib/i18n/format";
 
 type Props = {
   subscriptionId: string;
@@ -21,6 +23,8 @@ export function CalendarConfirmation({
   renewalDate,
   onDone,
 }: Props) {
+  const { dict } = useLocale();
+  const t = dict.calendarConfirmation;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -50,22 +54,22 @@ export function CalendarConfirmation({
         window.location.assign(body.connectUrl);
         return;
       }
-      setError(body.error ?? "Google Calendar could not be updated.");
+      setError(body.error ?? t.couldNotUpdate);
     } catch {
-      setError("Google Calendar could not be reached. Try again.");
+      setError(t.couldNotReach);
     }
 
     setLoading(false);
   }
 
   return (
-    <div className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:grid sm:place-items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="calendar-title"
         aria-describedby="calendar-description"
-        className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900"
+        className="w-full max-w-sm rounded-t-3xl bg-white p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl dark:bg-slate-900 sm:rounded-3xl"
       >
         <div className="flex items-start justify-between">
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950">
@@ -75,7 +79,7 @@ export function CalendarConfirmation({
             type="button"
             onClick={onDone}
             disabled={loading}
-            aria-label="Skip calendar"
+            aria-label={t.skipCalendar}
             className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-800"
           >
             <X size={17} />
@@ -83,18 +87,17 @@ export function CalendarConfirmation({
         </div>
 
         <h2 id="calendar-title" className="mt-5 text-lg font-bold">
-          Add renewal to Google Calendar?
+          {t.title}
         </h2>
         <p
           id="calendar-description"
           className="mt-2 text-sm leading-6 text-slate-500"
         >
-          Your subscription was saved. Mirqo can add the renewal directly to
-          your connected Google Calendar.
+          {t.desc}
         </p>
 
         <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-800">
-          <p className="font-semibold">{serviceName} renewal</p>
+          <p className="font-semibold">{format(t.renewal, { service: serviceName })}</p>
           <p className="mt-1 text-xs text-slate-500">
             {renewalDate} - {currency} {amount}
           </p>
@@ -118,7 +121,7 @@ export function CalendarConfirmation({
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-          {loading ? "Connecting..." : "Add to Google Calendar"}
+          {loading ? t.connecting : t.addToCalendar}
         </button>
         <button
           type="button"
@@ -126,7 +129,7 @@ export function CalendarConfirmation({
           onClick={onDone}
           className="mt-2 w-full py-3 text-sm font-semibold text-slate-500 disabled:opacity-50"
         >
-          Not now
+          {t.notNow}
         </button>
       </div>
     </div>

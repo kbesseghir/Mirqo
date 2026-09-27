@@ -1,1 +1,2 @@
-okey now i want to deploy it 
+-- Intentionally left as a no-op migration.
+-- Notification ownership is enforced by 202607190002_notification_read_hardening.sql.

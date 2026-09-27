@@ -6,20 +6,25 @@ import {
   AlertCircle,
   ArrowLeft,
   Check,
+  CheckCircle2,
+  Circle,
   FileText,
   ImageUp,
   Loader2,
   Mail,
-  Sparkles,
+  ScanText,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { createSubscription } from "@/features/subscriptions/actions/create-subscription";
 import {
   DetectionMethod,
   DetectedSubscription,
 } from "@/features/subscriptions/types/detected-subscription";
 import { parseSubscriptionText } from "@/features/subscriptions/services/parse-subscription-text";
+import { suggestCommitmentType } from "@/lib/commitment-type";
 import { CalendarConfirmation } from "@/components/subscriptions/calendar-confirmation";
+import { useLocale } from "@/components/locale-provider";
+import { format } from "@/lib/i18n/format";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 const currencies = [
   "USD",
@@ -33,12 +38,22 @@ const currencies = [
   "JPY",
   "DZD",
 ];
+type T = Dictionary["detection"];
 
-export function DetectionFlow() {
+export function DetectionFlow({
+  initialMethod,
+  embedded = false,
+}: {
+  initialMethod?: DetectionMethod;
+  embedded?: boolean;
+} = {}) {
   const router = useRouter();
   const params = useSearchParams();
+  const { dict } = useLocale();
+  const t = dict.detection;
   const initial =
-    params.get("method") === "screenshot" ? "screenshot" : "email";
+    initialMethod ??
+    (params.get("method") === "screenshot" ? "screenshot" : "email");
   const [method, setMethod] = useState<DetectionMethod>(initial);
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -57,13 +72,13 @@ export function DetectionFlow() {
       let sourceText = text;
       if (method === "email") {
         if (text.trim().length < 20)
-          throw new Error("Paste more of the receipt or renewal email.");
+          throw new Error(t.pasteMoreError);
       } else {
-        if (!file) throw new Error("Choose a screenshot first.");
+        if (!file) throw new Error(t.chooseScreenshotError);
         if (file.size > 5_500_000)
-          throw new Error("The image must be smaller than 5 MB.");
+          throw new Error(t.imageTooLargeError);
         if (!["image/png", "image/jpeg", "image/webp"].includes(file.type))
-          throw new Error("Choose a PNG, JPG, or WebP image.");
+          throw new Error(t.imageTypeError);
         const { createWorker } = await import("tesseract.js");
         setOcrProgress(0);
         const worker = await createWorker("eng", 1, {
@@ -79,16 +94,14 @@ export function DetectionFlow() {
           await worker.terminate();
         }
         if (sourceText.trim().length < 10)
-          throw new Error(
-            "We could not read enough text from that screenshot. Try a clearer image.",
-          );
+          throw new Error(t.notEnoughTextError);
       }
       setResult(parseSubscriptionText(sourceText));
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
-          : "Detection failed. Please try again.",
+          : t.detectionFailedError,
       );
     } finally {
       setLoading(false);
@@ -114,6 +127,7 @@ export function DetectionFlow() {
     data.set("reminder_days_before", String(reminder));
     data.set("notes", "");
     data.set("source_type", method === "email" ? "text" : "screenshot");
+    data.set("commitment_type", suggestCommitmentType(result.service_name));
     const saved = await createSubscription(data);
     setSaving(false);
     if (!saved.success) {
@@ -127,6 +141,8 @@ export function DetectionFlow() {
     return (
       <>
         <Review
+          t={t}
+          common={dict.common}
           result={result}
           update={update}
           reminder={reminder}
@@ -135,6 +151,7 @@ export function DetectionFlow() {
           error={error}
           save={save}
           edit={() => setResult(null)}
+          showHeader={!embedded}
         />
         {calendarPrompt && (
           <CalendarConfirmation
@@ -153,16 +170,17 @@ export function DetectionFlow() {
       </>
     );
   return (
-    <div className="mx-auto max-w-lg pb-16">
-      <Header />
+    <div className={`pb-16 ${embedded ? "" : "mx-auto max-w-lg"}`}>
+      {!embedded && <Header t={t} />}
       <div className="mb-7">
-        <h2 className="text-lg font-bold">Detect subscription details</h2>
+        <h2 className="text-xl font-bold tracking-tight">
+          {method === "screenshot" ? t.scanTitle : t.pasteTitle}
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Mirqo reads the text locally using fixed rules, then asks you to
-          review it.
+          {method === "screenshot" ? t.scanDesc : t.pasteDesc}
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      {!embedded && <div className="grid grid-cols-2 gap-3">
         <Choice
           active={method === "email"}
           onClick={() => {
@@ -170,7 +188,7 @@ export function DetectionFlow() {
             setError("");
           }}
           icon={Mail}
-          title="Paste email"
+          title={t.pasteEmailChoice}
         />
         <Choice
           active={method === "screenshot"}
@@ -179,14 +197,14 @@ export function DetectionFlow() {
             setError("");
           }}
           icon={ImageUp}
-          title="Screenshot"
+          title={t.screenshotChoice}
         />
-      </div>
-      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      </div>}
+      <section className="ui-feature-card p-5 sm:p-7">
         {method === "email" ? (
           <>
             <label htmlFor="email-text" className="text-sm font-semibold">
-              Receipt or renewal email
+              {t.receiptLabel}
             </label>
             <textarea
               id="email-text"
@@ -194,56 +212,129 @@ export function DetectionFlow() {
               maxLength={30000}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Paste the email text here..."
+              placeholder={t.pastePlaceholder}
               className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"
             />
           </>
-        ) : (
-          <Upload file={file} onChange={setFile} />
-        )}{" "}
+        ) : <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(300px,.9fr)]">
+          <div>
+            <Upload file={file} onChange={setFile} t={t} />
+            <div className="mt-5 flex items-center justify-between text-xs" aria-live="polite">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {loading ? t.readingScreenshot : file ? t.readyToScan : t.chooseScreenshotToBegin}
+              </span>
+              {loading && <span className="font-bold text-blue-600">{ocrProgress}%</span>}
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                style={{ width: `${loading ? Math.max(8, ocrProgress) : file ? 5 : 0}%` }}
+              />
+            </div>
+          </div>
+          <ExtractionProgress fileSelected={Boolean(file)} loading={loading} progress={ocrProgress} t={t} />
+        </div>}{" "}
         {error && <ErrorMessage text={error} />}
         <button
           onClick={detect}
-          disabled={loading}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-md shadow-blue-200 disabled:opacity-60 dark:shadow-none"
+          disabled={loading || (method === "screenshot" ? !file : text.trim().length < 20)}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 dark:shadow-none"
         >
           {loading ? (
             <Loader2 size={16} className="animate-spin" />
           ) : (
-            <Sparkles size={16} />
+            <ScanText size={16} />
           )}{" "}
           {loading
             ? method === "screenshot" && ocrProgress > 0
-              ? "Reading image " + ocrProgress + "%"
-              : "Analyzing..."
-            : "Detect details"}
+              ? format(t.readingScreenshotPercent, { percent: ocrProgress })
+              : t.reading
+            : method === "screenshot" ? t.scanScreenshot : t.extractDetails}
         </button>
       </section>
-      <p className="mt-4 text-center text-xs text-slate-500">
-        <FileText size={13} className="mr-1 inline" />
-        Prefer manual entry?{" "}
+      {!embedded && <p className="mt-4 text-center text-xs text-slate-500">
+        <FileText size={13} className="me-1 inline" />
+        {t.preferManual}{" "}
         <Link
           href="/subscriptions/new?method=manual"
           className="font-semibold text-blue-600"
         >
-          Add manually
+          {t.addManually}
         </Link>
+      </p>}
+    </div>
+  );
+}
+
+function ExtractionProgress({
+  fileSelected,
+  loading,
+  progress,
+  t,
+}: {
+  fileSelected: boolean;
+  loading: boolean;
+  progress: number;
+  t: T;
+}) {
+  const steps = [
+    { label: t.stepScreenshotSelected, state: fileSelected ? "complete" : "waiting" },
+    {
+      label: t.stepReadingText,
+      state: loading ? (progress >= 90 ? "complete" : "active") : "waiting",
+    },
+    {
+      label: t.stepFindingDetails,
+      state: loading && progress >= 90 ? "active" : "waiting",
+    },
+    { label: t.stepPreparing, state: "waiting" },
+  ] as const;
+  return (
+    <div>
+      <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+        {t.extractionProgress}
+      </p>
+      <div className="space-y-2.5">
+        {steps.map((step) => (
+          <div
+            key={step.label}
+            className={`flex items-center gap-3 rounded-2xl border px-4 py-3.5 text-sm ${
+              step.state === "active"
+                ? "border-blue-200 bg-blue-50 font-semibold text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100"
+                : step.state === "complete"
+                  ? "border-emerald-100 bg-emerald-50 text-slate-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-slate-200"
+                  : "border-transparent text-slate-400"
+            }`}
+          >
+            {step.state === "complete" ? (
+              <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+            ) : step.state === "active" ? (
+              <Loader2 size={18} className="shrink-0 animate-spin text-blue-600" />
+            ) : (
+              <Circle size={18} className="shrink-0 text-slate-300" />
+            )}
+            {step.label}
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs leading-5 text-slate-500">
+        {t.noAiNote}
       </p>
     </div>
   );
 }
-function Header() {
+function Header({ t }: { t: T }) {
   return (
     <header className="mb-9 flex items-center gap-3">
       <Link
         href="/subscriptions/new"
         className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
       >
-        <ArrowLeft size={17} />
+        <ArrowLeft size={17} className="rtl:rotate-180" />
       </Link>
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Add subscription</h1>
-        <p className="mt-0.5 text-xs text-slate-500">Automatic detection</p>
+        <h1 className="text-xl font-bold tracking-tight">{t.addSubscription}</h1>
+        <p className="mt-0.5 text-xs text-slate-500">{t.automaticDetection}</p>
       </div>
     </header>
   );
@@ -263,7 +354,7 @@ function Choice({
     <button
       onClick={onClick}
       className={
-        "flex items-center gap-3 rounded-2xl border p-4 text-left text-sm font-semibold " +
+        "flex items-center gap-3 rounded-2xl border p-4 text-start text-sm font-semibold " +
         (active
           ? "border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950"
           : "border-slate-200 dark:border-slate-700")
@@ -277,21 +368,25 @@ function Choice({
 function Upload({
   file,
   onChange,
+  t,
 }: {
   file: File | null;
   onChange: (file: File | null) => void;
+  t: T;
 }) {
   function change(e: ChangeEvent<HTMLInputElement>) {
     onChange(e.target.files?.[0] ?? null);
   }
   return (
-    <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center hover:border-blue-400 dark:border-slate-700">
-      <ImageUp className="mx-auto text-blue-600" />
+    <label className="flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-8 text-center transition hover:border-blue-400 hover:bg-blue-50/40 dark:border-slate-700 dark:bg-slate-950">
+      <span className="grid h-16 w-16 place-items-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-950">
+        <ImageUp size={26} />
+      </span>
       <span className="mt-4 block text-sm font-semibold">
-        {file?.name ?? "Upload a subscription screenshot"}
+        {file?.name ?? t.clickToUpload}
       </span>
       <span className="mt-1 block text-xs text-slate-500">
-        PNG, JPG, or WebP - maximum 5 MB
+        {t.uploadHint}
       </span>
       <input
         type="file"
@@ -303,6 +398,8 @@ function Upload({
   );
 }
 function Review({
+  t,
+  common,
   result,
   update,
   reminder,
@@ -311,7 +408,10 @@ function Review({
   error,
   save,
   edit,
+  showHeader,
 }: {
+  t: T;
+  common: Dictionary["common"];
   result: DetectedSubscription;
   update: <K extends keyof DetectedSubscription>(
     key: K,
@@ -323,19 +423,20 @@ function Review({
   error: string;
   save: () => void;
   edit: () => void;
+  showHeader: boolean;
 }) {
   return (
-    <div className="mx-auto max-w-lg pb-16">
-      <Header />
+    <div className="mx-auto max-w-xl pb-16">
+      {showHeader && <Header t={t} />}
       <div className="mb-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Review detected details</h2>
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950">
-            {Math.round(result.confidence * 100)}% confidence
+          <h2 className="text-lg font-bold">{t.reviewTitle}</h2>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            {t.readyToReview}
           </span>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          Correct anything that looks wrong before saving.
+          {t.reviewDesc}
         </p>
       </div>
       {result.warnings.length > 0 && (
@@ -345,15 +446,15 @@ function Review({
           ))}
         </div>
       )}
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <Field label="Service name">
+      <section className="ui-card space-y-4 p-5 sm:p-6">
+        <Field label={t.serviceName}>
           <input
             value={result.service_name}
             onChange={(e) => update("service_name", e.target.value)}
           />
         </Field>
-        <div className="grid grid-cols-[1fr_110px] gap-3">
-          <Field label="Amount">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_110px]">
+          <Field label={t.amount}>
             <input
               type="number"
               min="0"
@@ -362,7 +463,7 @@ function Review({
               onChange={(e) => update("amount", Number(e.target.value))}
             />
           </Field>
-          <Field label="Currency">
+          <Field label={t.currency}>
             <select
               value={result.currency}
               onChange={(e) => update("currency", e.target.value)}
@@ -373,8 +474,8 @@ function Review({
             </select>
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Billing cycle">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label={t.billingCycle}>
             <select
               value={result.billing_cycle}
               onChange={(e) =>
@@ -384,12 +485,12 @@ function Review({
                 )
               }
             >
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Annual</option>
-              <option value="trial">Trial</option>
+              <option value="monthly">{common.monthly}</option>
+              <option value="yearly">{common.yearly}</option>
+              <option value="trial">{common.trial}</option>
             </select>
           </Field>
-          <Field label="Next renewal">
+          <Field label={t.nextRenewal}>
             <input
               type="date"
               value={result.renewal_date}
@@ -397,14 +498,14 @@ function Review({
             />
           </Field>
         </div>
-        <Field label="Reminder">
+        <Field label={t.reminder}>
           <select
             value={reminder}
             onChange={(e) => setReminder(Number(e.target.value))}
           >
             {[1, 3, 7, 14].map((d) => (
               <option key={d} value={d}>
-                {d} day{d === 1 ? "" : "s"} before
+                {d === 1 ? format(t.dayBefore, { n: d }) : format(t.daysBefore, { n: d })}
               </option>
             ))}
           </select>
@@ -421,13 +522,13 @@ function Review({
         ) : (
           <Check size={16} />
         )}{" "}
-        {saving ? "Saving..." : "Confirm and save"}
+        {saving ? t.saving : t.confirmSave}
       </button>
       <button
         onClick={edit}
         className="mt-2 w-full py-3 text-sm font-semibold text-slate-500"
       >
-        Use different input
+        {t.useDifferentInput}
       </button>
     </div>
   );

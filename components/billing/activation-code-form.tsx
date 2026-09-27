@@ -1,2 +1,46 @@
-'use client';import{FormEvent,useState}from'react';import{Check,KeyRound,Loader2}from'lucide-react';import{redeemActivationCode}from'@/features/billing/actions/redeem-activation-code';
-export function ActivationCodeForm(){const[code,setCode]=useState(''),[loading,setLoading]=useState(false),[error,setError]=useState(''),[done,setDone]=useState(false);async function submit(event:FormEvent){event.preventDefault();if(loading)return;setLoading(true);setError('');const result=await redeemActivationCode(code);if(result.success){setDone(true);setCode('')}else setError(result.message);setLoading(false)}if(done)return <div className="mt-5 flex items-center gap-2 rounded-xl bg-white/15 p-3 text-sm font-semibold"><Check size={17}/>Pro activated for 30 days.</div>;return <form onSubmit={submit} className="mt-5"><label htmlFor="activation-code" className="text-xs font-semibold text-blue-100">Have an activation code?</label><div className="mt-2 flex gap-2"><div className="relative min-w-0 flex-1"><KeyRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input id="activation-code" value={code} onChange={event=>setCode(event.target.value)} autoComplete="off" placeholder="MIRQO-XXXX-XXXX" className="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3 text-sm font-semibold uppercase text-slate-900 outline-none ring-2 ring-transparent placeholder:text-slate-400 focus:ring-blue-200"/></div><button disabled={loading||!code.trim()} className="flex h-11 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white disabled:opacity-50">{loading?<Loader2 size={17} className="animate-spin"/>:'Activate'}</button></div>{error&&<p role="alert" className="mt-2 text-xs text-red-100">{error}</p>}</form>}
+'use client';
+
+import { FormEvent, useState } from 'react';
+import { Check, KeyRound, Loader2 } from 'lucide-react';
+import { redeemActivationCode } from '@/features/billing/actions/redeem-activation-code';
+import { useLocale } from '@/components/locale-provider';
+
+export function ActivationCodeForm() {
+  const { dict } = useLocale();
+  const t = dict.activationCode;
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    const result = await redeemActivationCode(code);
+    if (result.success) {
+      setDone(true);
+      setCode('');
+    } else setError(result.message);
+    setLoading(false);
+  }
+
+  if (done) return (
+    <div className="mt-5 flex items-center gap-2 rounded-xl bg-white/15 p-3 text-sm font-semibold"><Check size={17} />{t.activated}</div>
+  );
+
+  return (
+    <form onSubmit={submit} className="mt-5">
+      <label htmlFor="activation-code" className="text-xs font-semibold text-blue-100">{t.haveCode}</label>
+      <div className="mt-2 flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <KeyRound size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input id="activation-code" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" placeholder={t.placeholder} className="h-11 w-full rounded-xl border-0 bg-white ps-10 pe-3 text-sm font-semibold uppercase text-slate-900 outline-none ring-2 ring-transparent placeholder:text-slate-400 focus:ring-blue-200" />
+        </div>
+        <button disabled={loading || !code.trim()} className="flex h-11 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white disabled:opacity-50">{loading ? <Loader2 size={17} className="animate-spin" /> : t.activate}</button>
+      </div>
+      {error && <p role="alert" className="mt-2 text-xs text-red-100">{error}</p>}
+    </form>
+  );
+}

@@ -10,31 +10,43 @@ import {
   CalendarDays,
   CreditCard,
   LayoutDashboard,
+  MessageCircle,
   MoreHorizontal,
   Plus,
+  ReceiptText,
   Search,
   Settings,
+  WalletCards,
 } from "lucide-react";
 import { Logo } from "./brand/logo";
 import { ThemeToggle } from "./theme-toggle";
+import { LanguageToggle } from "./language-toggle";
+import { useLocale } from "./locale-provider";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
-const navigation = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Subscriptions", href: "/subscriptions", icon: CreditCard },
-  { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays },
-  { label: "Notifications", href: "/notifications", icon: Bell },
-  { label: "Settings", href: "/settings", icon: Settings },
-] as const;
+const feedbackUrl =
+  process.env.NEXT_PUBLIC_FEEDBACK_URL?.trim() ||
+  "mailto:cert.learndz@gmail.com?subject=Mirqo%20beta%20feedback";
 
-const mobileNavigation = [navigation[0], navigation[1], navigation[2]] as const;
+function useNavigation(nav: Dictionary["nav"]) {
+  return [
+    { label: nav.dashboard, href: "/dashboard", icon: LayoutDashboard },
+    { label: nav.subscriptions, href: "/subscriptions", icon: CreditCard },
+    { label: nav.analytics, href: "/analytics", icon: BarChart3 },
+    { label: nav.calendar, href: "/calendar", icon: CalendarDays },
+    { label: nav.monthlySnapshot, href: "/snapshot", icon: WalletCards },
+    { label: nav.paymentHistory, href: "/payments", icon: ReceiptText },
+    { label: nav.notifications, href: "/notifications", icon: Bell },
+    { label: nav.settings, href: "/settings", icon: Settings },
+  ] as const;
+}
 
 function NavigationLink({
   item,
   mobile = false,
   unreadNotifications = 0,
 }: {
-  item: (typeof navigation)[number];
+  item: { label: string; href: string; icon: typeof LayoutDashboard };
   mobile?: boolean;
   unreadNotifications?: number;
 }) {
@@ -46,10 +58,10 @@ function NavigationLink({
     return (
       <Link
         href={item.href}
-        className={`relative flex min-w-14 flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[10px] font-semibold transition ${active ? "bg-blue-50 text-blue-600" : "text-slate-400"}`}
+        className={`relative flex min-w-14 flex-col items-center gap-1 px-3 py-1.5 text-[10px] font-semibold transition ${active ? "text-blue-600" : "text-slate-400"}`}
       >
         <Icon size={20} strokeWidth={active ? 2.5 : 1.75} />
-        {item.label === "Subscriptions" ? "Subs" : item.label}
+        {item.label}
       </Link>
     );
   }
@@ -57,15 +69,15 @@ function NavigationLink({
   return (
     <Link
       href={item.href}
-      className={`relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition ${active ? "bg-blue-50 font-semibold text-blue-700" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
+      className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] transition ${active ? "bg-blue-50 font-semibold text-blue-700" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"}`}
     >
       {active && (
-        <span className="absolute left-0 h-5 w-1 rounded-full bg-blue-600" />
+        <span className="absolute start-0 h-4 w-0.5 rounded-full bg-blue-600" />
       )}
       <Icon size={17} />
       {item.label}
       {item.href === "/notifications" && unreadNotifications > 0 && (
-        <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+        <span className="ms-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
           {unreadNotifications > 99 ? "99+" : unreadNotifications}
         </span>
       )}
@@ -76,6 +88,10 @@ function NavigationLink({
 export function AppShell({ children, email, isPro = false, unreadNotifications = 0 }: { children: React.ReactNode; email?: string; isPro?: boolean; unreadNotifications?: number }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { dict } = useLocale();
+  const t = dict.appShell;
+  const navigation = useNavigation(dict.nav);
+  const mobileNavigation = [navigation[0], navigation[1], navigation[2]] as const;
   const [navigating, setNavigating] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,13 +142,16 @@ export function AppShell({ children, email, isPro = false, unreadNotifications =
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const mobileMoreActive = ["/calendar", "/notifications", "/settings", "/profile", "/upgrade"].some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
 
   return (
-    <div className="min-h-screen bg-white" onClickCapture={handleNavigation}>
-      {navigating && <NavigationLoading />}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200/80 bg-[#fafbfc] lg:flex">
+    <div className="min-h-screen bg-[var(--background)]" onClickCapture={handleNavigation}>
+      {navigating && <NavigationLoading label={t.loadingPage} />}
+      <aside className="fixed inset-y-0 start-0 z-30 hidden w-60 flex-col border-e border-slate-200 bg-white lg:flex">
         <div className="flex h-16 items-center px-5">
-          <Logo compact />
+          <Logo compact markOnly />
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
           {navigation.map((item) => (
@@ -140,6 +159,7 @@ export function AppShell({ children, email, isPro = false, unreadNotifications =
           ))}
         </nav>
         <div className="space-y-2 px-3 pb-5">
+          <LanguageToggle className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" />
           {!isPro && <Link
             href="/upgrade"
             className="flex items-center gap-2.5 rounded-xl bg-blue-50 px-3.5 py-2.5 text-sm font-semibold text-blue-600"
@@ -147,109 +167,124 @@ export function AppShell({ children, email, isPro = false, unreadNotifications =
             <span className="grid h-5 w-5 place-items-center rounded-lg bg-blue-600 text-[10px] font-black text-white">
               <ArrowUp size={12} />
             </span>
-            Upgrade to Pro
+            {t.betaProAccess}
           </Link>}
+          <a
+            href={feedbackUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+          >
+            <MessageCircle size={16} />
+            {t.sendFeedback}
+          </a>
           <Link
             href="/settings"
             className="group flex items-center gap-3 rounded-xl px-3.5 py-2.5 hover:bg-slate-100"
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 text-xs font-bold text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-blue-600 text-xs font-bold text-white">
               {initials}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold capitalize text-slate-900">
                 {name}
               </span>
-              <span className={`block text-xs ${isPro?"font-semibold text-emerald-600":"text-slate-500"}`}>{isPro?"Pro plan":"Free plan"}</span>
+              <span className={`block text-xs ${isPro?"font-semibold text-emerald-600":"text-slate-500"}`}>{isPro?t.proPlan:t.freePlan}</span>
             </span>
             <MoreHorizontal size={14} className="text-slate-400" />
           </Link>
         </div>
       </aside>
 
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200/70 bg-white/85 px-4 backdrop-blur-xl lg:ml-64 lg:px-8">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xl lg:ms-60 lg:px-8">
         <div className="lg:hidden">
-          <Logo compact />
+          <Logo compact markOnly />
         </div>
         <form action="/subscriptions" method="get" className="relative hidden w-full max-w-xs lg:block">
-          <button type="submit" aria-label="Run search" className="absolute left-1.5 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-white hover:text-blue-600"><Search size={14}/></button>
-          <input aria-label="Search subscriptions" placeholder="Search subscriptions..." name="search" defaultValue={searchParams.get("search")??""} className="w-full rounded-xl border border-transparent bg-slate-100/70 py-2 pl-9 pr-10 text-sm outline-none transition focus:border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-100" />
+          <button type="submit" aria-label={t.runSearch} className="absolute start-1.5 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-white hover:text-blue-600"><Search size={14}/></button>
+          <input aria-label={t.searchAria} placeholder={t.searchPlaceholder} name="search" defaultValue={searchParams.get("search")??""} className="w-full rounded-xl border border-transparent bg-slate-100/70 py-2 ps-9 pe-10 text-sm outline-none transition focus:border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-100" />
         </form>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ms-auto flex items-center gap-3">
+          <LanguageToggle className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 sm:flex" />
           <ThemeToggle />
           <Link
             href="/notifications"
-            aria-label="Notifications"
+            aria-label={t.notificationsAria}
             className="relative grid h-9 w-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100"
           >
             <Bell size={17} />
             {unreadNotifications > 0 && (
-              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+              <span className="absolute -end-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
                 {unreadNotifications > 99 ? "99+" : unreadNotifications}
               </span>
             )}
           </Link>
           <Link
             href="/profile"
-            aria-label="Profile"
-            className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-[11px] font-bold text-white shadow-sm lg:hidden"
+            aria-label={t.profileAria}
+            className="grid h-9 w-9 place-items-center rounded-lg bg-blue-600 text-[11px] font-bold text-white lg:hidden"
           >
             {initials}
           </Link>
           <Link
             href="/subscriptions/new"
-            className="hidden items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700 sm:flex"
+            className="ms-1 hidden min-h-10 items-center gap-1.5 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 lg:flex"
           >
             <Plus size={15} />
-            Add
+            {t.add}
           </Link>
         </div>
       </header>
 
-      <main className="min-h-[calc(100vh-3.5rem)] bg-white px-4 py-6 pb-32 sm:px-6 lg:ml-64 lg:px-8 lg:pb-10">
-        <div className="mx-auto w-full max-w-[1600px] animate-page-enter">
+      <main className="min-h-[calc(100vh-3.5rem)] bg-[#f6f8fb] px-4 py-5 pb-28 sm:px-6 sm:py-7 sm:pb-32 lg:ms-60 lg:px-9 lg:py-9 lg:pb-10 xl:px-12">
+        <div className="mx-auto w-full max-w-[1520px] animate-page-enter">
           {children}
         </div>
       </main>
 
       {mobileMoreOpen && (
         <>
-          <button type="button" aria-label="Close more menu" onClick={() => setMobileMoreOpen(false)} className="fixed inset-0 z-30 bg-slate-950/10 lg:hidden" />
-          <section aria-label="More navigation" className="fixed bottom-24 right-4 z-50 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/20 lg:hidden">
-            <Link href="/calendar" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><CalendarDays size={18} className="text-slate-400"/>Calendar</Link>
-            <Link href="/notifications" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Bell size={18} className="text-slate-400"/>Notifications{unreadNotifications > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link>
-            <Link href="/settings" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Settings size={18} className="text-slate-400"/>Settings</Link>
+          <button type="button" aria-label={t.closeMoreMenu} onClick={() => setMobileMoreOpen(false)} className="fixed inset-0 z-30 bg-slate-950/10 lg:hidden" />
+          <section aria-label={t.moreNavigation} className="fixed bottom-24 end-4 z-50 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/20 lg:hidden">
+            <Link href="/calendar" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><CalendarDays size={18} className="text-slate-400"/>{dict.nav.calendar}</Link>
+            <Link href="/snapshot" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><WalletCards size={18} className="text-slate-400"/>{dict.nav.monthlySnapshot}</Link>
+            <Link href="/notifications" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Bell size={18} className="text-slate-400"/>{dict.nav.notifications}{unreadNotifications > 0 && <span className="ms-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link>
+            <Link href="/settings" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Settings size={18} className="text-slate-400"/>{dict.nav.settings}</Link>
+            <a href={feedbackUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><MessageCircle size={18} className="text-slate-400"/>{t.sendFeedback}</a>
+            <div className="border-t border-slate-100 pt-2">
+              <LanguageToggle className="flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" />
+            </div>
           </section>
         </>
       )}
-      <nav className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-[22px] border border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-2xl shadow-slate-900/15 backdrop-blur-2xl lg:hidden">
+      <nav className="safe-area-bottom fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-0.5 border-t border-slate-200/80 bg-white/95 px-2 pt-2.5 shadow-[0_-12px_35px_rgba(15,23,42,0.07)] backdrop-blur-2xl sm:inset-x-auto sm:bottom-2 sm:start-1/2 sm:w-auto sm:-translate-x-1/2 rtl:sm:translate-x-1/2 sm:justify-center sm:rounded-[22px] sm:border sm:px-3 sm:shadow-2xl sm:shadow-slate-900/15 lg:hidden">
         {mobileNavigation.slice(0, 2).map((item) => (
           <NavigationLink item={item} key={item.href} mobile />
         ))}
         <Link
           href="/subscriptions/new"
-          aria-label="Add subscription"
-          className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200"
+          aria-label={t.addSubscriptionAria}
+          className="grid h-11 w-11 -translate-y-2 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200 sm:translate-y-0"
         >
           <Plus size={20} strokeWidth={2.5} />
         </Link>
         {mobileNavigation.slice(2).map((item) => (
           <NavigationLink item={item} key={item.href} mobile />
         ))}
-        <button type="button" aria-label="More" aria-expanded={mobileMoreOpen} onClick={() => setMobileMoreOpen(value => !value)} className={`flex min-w-14 flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[10px] font-semibold transition ${mobileMoreOpen ? "bg-blue-50 text-blue-600" : "text-slate-400"}`}>
-          <MoreHorizontal size={20} strokeWidth={mobileMoreOpen ? 2.5 : 1.75}/>
-          More
+        <button type="button" aria-label={t.more} aria-expanded={mobileMoreOpen} onClick={() => setMobileMoreOpen(value => !value)} className={`flex min-w-14 flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[10px] font-semibold transition ${mobileMoreOpen || mobileMoreActive ? "text-blue-600" : "text-slate-400"}`}>
+          <MoreHorizontal size={20} strokeWidth={mobileMoreOpen || mobileMoreActive ? 2.5 : 1.75}/>
+          {t.more}
         </button>
       </nav>
     </div>
   );
 }
 
-function NavigationLoading() {
+function NavigationLoading({ label }: { label: string }) {
   return (
     <div
       role="progressbar"
-      aria-label="Loading page"
+      aria-label={label}
       className="fixed inset-x-0 top-0 z-[100] h-1 overflow-hidden bg-blue-100"
     >
       <span className="block h-full w-1/3 animate-navigation-progress rounded-full bg-blue-600" />

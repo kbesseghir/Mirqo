@@ -1,2 +1,19 @@
-import Link from 'next/link';import { Mail, RefreshCw } from 'lucide-react';
-export default function Page(){return <main className="grid min-h-screen place-items-center bg-white px-6"><div className="w-full max-w-sm text-center"><Link href="/" className="mx-auto mb-9 flex w-fit items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-600 text-white"><RefreshCw size={14}/></span><span className="font-bold">Mirqo</span></Link><span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-blue-50 text-blue-600"><Mail size={28}/></span><h1 className="mt-5 text-2xl font-bold">Check your email</h1><p className="mt-3 text-sm leading-6 text-slate-500">We sent you a confirmation link. Open it to verify your account, then return to Mirqo.</p><Link href="/login" className="mt-7 block rounded-xl border border-slate-200 py-3 text-sm font-semibold">Back to sign in</Link></div></main>}
+import Link from "next/link";
+import { MailCheck } from "lucide-react";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { getLocale } from "@/lib/i18n/get-locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+
+export default async function Page() {
+  const t = getDictionary(await getLocale()).checkEmail;
+  return (
+    <AuthShell mode="signup">
+      <div className="flex flex-1 flex-col text-center">
+        <span className="mx-auto mt-20 grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 text-white shadow-xl shadow-blue-200 lg:mt-0"><MailCheck size={48} /></span>
+        <h1 className="mt-9 text-[30px] font-bold tracking-tight">{t.title}</h1>
+        <p className="mx-auto mt-3 max-w-sm text-[15px] leading-6 text-slate-500">{t.desc}</p>
+        <Link href="/login" className="mt-auto flex min-h-14 items-center justify-center rounded-full bg-gradient-to-r from-blue-700 to-indigo-500 text-sm font-bold text-white shadow-lg shadow-blue-200 lg:mt-12">{t.signIn}</Link>
+      </div>
+    </AuthShell>
+  );
+}

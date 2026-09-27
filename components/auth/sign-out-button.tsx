@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/components/locale-provider";
 
 export function SignOutButton({
   className = "text-sm font-semibold text-slate-600 hover:text-red-600",
@@ -11,6 +12,7 @@ export function SignOutButton({
   className?: string;
 }) {
   const router = useRouter();
+  const { dict } = useLocale();
   const [loading, setLoading] = useState(false);
 
   async function signOut() {
@@ -33,7 +35,7 @@ export function SignOutButton({
       className={"inline-flex items-center gap-2 disabled:opacity-60 " + className}
     >
       {loading && <Loader2 size={14} className="animate-spin" />}
-      {loading ? "Signing out..." : "Sign out"}
+      {loading ? dict.common.signingOut : dict.common.signOut}
     </button>
   );
 }

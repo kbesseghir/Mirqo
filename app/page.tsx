@@ -1,2 +1,54 @@
-import Link from 'next/link'; import { ArrowRight, CalendarCheck, ScanText, ShieldCheck } from 'lucide-react';
-export default function Home(){return <main className="min-h-screen bg-white"><header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5"><div className="text-2xl font-extrabold">Mirqo</div><div className="flex gap-3"><Link href="/login" className="px-4 py-2 font-semibold">Log in</Link><Link href="/signup" className="rounded-xl bg-blue-600 px-4 py-2 font-bold text-white">Start free</Link></div></header><section className="mx-auto grid max-w-7xl items-center gap-14 px-5 py-20 lg:grid-cols-2"><div><span className="rounded-full bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">Calm control over every renewal</span><h1 className="mt-7 text-5xl font-extrabold leading-tight tracking-tight md:text-7xl">Never miss a <span className="text-blue-600">renewal</span> again.</h1><p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">Track subscriptions, review upcoming charges, and create reminders before money leaves your account.</p><Link href="/signup" className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white shadow-xl shadow-blue-200">Create free account <ArrowRight size={19}/></Link></div><div className="card bg-slate-50 p-5 md:p-8"><div className="rounded-3xl bg-white p-6 shadow-sm"><p className="text-sm font-bold text-blue-600">NEXT RENEWAL</p><div className="mt-5 flex items-center gap-4"><div className="grid h-14 w-14 place-items-center rounded-2xl bg-red-600 text-2xl font-black text-white">N</div><div className="flex-1"><h2 className="text-xl font-bold">Netflix</h2><p className="text-slate-500">Tomorrow · $15.99</p></div><button className="rounded-xl border px-4 py-2 font-semibold">Manage</button></div></div><div className="mt-4 grid gap-4 sm:grid-cols-3">{[[CalendarCheck,'Calendar reminders'],[ScanText,'Smart detection'],[ShieldCheck,'Private by design']].map(([I,t])=>{const Icon=I as typeof CalendarCheck;return <div key={t as string} className="rounded-2xl bg-white p-4"><Icon className="text-blue-600"/><p className="mt-3 text-sm font-bold">{t as string}</p></div>})}</div></div></section></main>}
+import { LandingPage } from "@/components/landing/landing-page";
+import { BellRing } from "lucide-react";
+
+export default function Home() {
+  return <LandingPage />;
+  /*
+      <div className="contents lg:grid lg:min-h-[700px] lg:w-full lg:max-w-[1180px] lg:grid-cols-[1.08fr_.92fr] lg:overflow-hidden lg:rounded-[32px] lg:border lg:border-white/80 lg:bg-white lg:shadow-[0_30px_90px_rgba(30,64,175,.14)]">
+      <section className="relative hidden overflow-hidden bg-[#f2f5fb] bg-[linear-gradient(rgba(37,99,235,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(37,99,235,.035)_1px,transparent_1px)] bg-[size:32px_32px] p-14 text-slate-950 lg:flex lg:flex-col lg:justify-between xl:p-16">
+        <span className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-blue-300/35 blur-3xl" />
+        <span className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
+        <span className="absolute left-1/2 top-1/3 h-52 w-52 rounded-full bg-indigo-200/30 blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div className="origin-left scale-110"><Logo href="/" /></div>
+          <LanguageToggle className="relative inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-600 backdrop-blur transition hover:bg-white" />
+        </div>
+        <div className="relative max-w-xl">
+          <p className="text-xs font-bold uppercase tracking-[.22em] text-blue-600">{t.kicker}</p>
+          <h1 className="mt-6 text-5xl font-bold leading-[1.08] tracking-tight">{t.headline}</h1>
+          <p className="mt-6 max-w-lg text-lg leading-8 text-slate-500">{t.lead}</p>
+        </div>
+        <div className="relative grid grid-cols-3 gap-3">
+          <Feature icon={CalendarCheck2} label={t.featureTrack} />
+          <Feature icon={BellRing} label={t.featureRemind} />
+          <Feature icon={ShieldCheck} label={t.featureBeta} />
+        </div>
+      </section>
+
+      <section className="mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center px-6 pb-[max(28px,env(safe-area-inset-bottom))] pt-16 text-center sm:px-10 lg:min-h-0 lg:max-w-[520px] lg:justify-center lg:px-14 lg:py-12">
+        <div className="mt-4 flex w-full items-center justify-center lg:hidden">
+          <LanguageToggle />
+        </div>
+        <div className="mt-16 flex min-h-28 w-full items-center justify-center sm:mt-20 lg:hidden">
+          <div className="origin-center scale-125 sm:scale-[1.35]">
+            <Logo href="/" />
+          </div>
+        </div>
+        <h1 className="mt-9 text-[30px] font-bold tracking-tight text-slate-950">{t.getStarted}</h1>
+        <p className="mt-3 text-[15px] text-slate-500">{t.getStartedLead}</p>
+
+        <div className="mt-auto w-full space-y-4 pt-16 lg:mt-12 lg:pt-0">
+          <Link href="/signup" className="flex min-h-14 w-full items-center justify-center rounded-full bg-gradient-to-r from-blue-700 to-indigo-500 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5">{t.signupFree}</Link>
+          <Link href="/login" className="flex min-h-14 w-full items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-blue-600 transition hover:bg-blue-100">{t.signIn}</Link>
+          <p className="pt-5 text-xs leading-5 text-slate-400">{t.footerNote}</p>
+        </div>
+      </section>
+      </div>
+    </main>
+  );
+  */
+}
+
+function Feature({ icon: Icon, label }: { icon: typeof BellRing; label: string }) {
+  return <div className="rounded-2xl border border-blue-100/80 bg-white/80 p-4 text-slate-700 shadow-sm backdrop-blur"><Icon size={20} className="text-blue-600" /><p className="mt-3 text-sm font-semibold">{label}</p></div>;
+}

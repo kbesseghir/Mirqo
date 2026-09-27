@@ -1,2 +1,66 @@
-'use client';import { useState } from 'react';import Link from 'next/link';import { ArrowLeft, Mail, RefreshCw } from 'lucide-react';import { createClient } from '@/lib/supabase/client';
-export default function Page(){const[email,setEmail]=useState('');const[loading,setLoading]=useState(false);const[sent,setSent]=useState(false);const[error,setError]=useState('');async function submit(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');const{error}=await createClient().auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/auth/callback?next=/reset-password`});setLoading(false);if(error){setError(error.message);return}setSent(true)}return <main className="grid min-h-screen place-items-center bg-white px-6"><div className="w-full max-w-sm"><Link href="/" className="mb-8 flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-600 text-white"><RefreshCw size={14}/></span><span className="font-bold">Mirqo</span></Link>{sent?<div className="text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-50 text-emerald-500"><Mail size={27}/></span><h1 className="mt-5 text-2xl font-bold">Check your email</h1><p className="mt-2 text-sm leading-6 text-slate-500">We sent a password reset link to <strong className="text-slate-700">{email}</strong>.</p><Link href="/login" className="mt-7 flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-sm font-semibold"><ArrowLeft size={14}/>Back to sign in</Link></div>:<><h1 className="text-2xl font-bold tracking-tight">Reset your password</h1><p className="mb-8 mt-2 text-sm text-slate-500">Enter your email and we&apos;ll send you a secure reset link.</p><form onSubmit={submit}><label className="text-sm font-semibold">Email address<div className="relative mt-2"><Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-600" placeholder="you@example.com"/></div></label>{error&&<p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button disabled={loading} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white disabled:opacity-60">{loading?'Sending…':'Send reset link'}</button></form><Link href="/login" className="mt-5 flex items-center justify-center gap-2 text-sm text-slate-500"><ArrowLeft size={14}/>Back to sign in</Link></>}</div></main>}
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
+import { AuthStyles } from "@/components/auth/auth-form";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/components/locale-provider";
+import { format } from "@/lib/i18n/format";
+
+export default function Page() {
+  const { dict } = useLocale();
+  const t = dict.forgotPassword;
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    const result = await createClient().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${location.origin}/auth/callback?next=/reset-password`,
+    });
+    setLoading(false);
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+    setSent(true);
+  }
+
+  return (
+    <AuthShell mode="login">
+      <Link href="/login" aria-label={t.backToSignIn} className="mb-10 grid h-10 w-10 place-items-center rounded-full text-slate-700 hover:bg-slate-100"><ArrowLeft size={22} className="rtl:rotate-180" /></Link>
+      {sent ? (
+        <div className="flex flex-1 flex-col text-center">
+          <span className="mx-auto mt-10 grid h-24 w-24 place-items-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 text-white shadow-xl shadow-blue-200"><CheckCircle2 size={42} /></span>
+          <h1 className="mt-8 text-[30px] font-bold tracking-tight">{t.checkEmailTitle}</h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">{format(t.checkEmailDesc, { email })}</p>
+          <Link href="/login" className="mt-auto flex min-h-14 items-center justify-center rounded-full bg-gradient-to-r from-blue-700 to-indigo-500 text-sm font-bold text-white shadow-lg shadow-blue-200 lg:mt-12">{t.backToSignIn}</Link>
+        </div>
+      ) : (
+        <>
+          <h1 className="text-[30px] font-bold leading-tight tracking-tight">{t.title} <span aria-hidden>🔑</span></h1>
+          <p className="mt-3 text-[15px] leading-6 text-slate-500">{t.subtitle}</p>
+          <form onSubmit={submit} className="mt-10 flex flex-1 flex-col">
+            <label className="text-[15px] font-semibold text-slate-900">{t.registeredEmail}
+              <div className="relative mt-3">
+                <Mail size={18} className="absolute start-5 top-1/2 -translate-y-1/2 text-slate-600" />
+                <input required autoComplete="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="trezo-input ps-14 pe-5" placeholder="you@example.com" />
+              </div>
+            </label>
+            {error && <p role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+            <button disabled={loading} className="mt-auto flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-indigo-500 text-sm font-bold text-white shadow-lg shadow-blue-200 disabled:opacity-60 lg:mt-12">
+              {loading ? <><Loader2 size={17} className="animate-spin" /> {t.sending}</> : t.sendResetLink}
+            </button>
+          </form>
+        </>
+      )}
+      <AuthStyles />
+    </AuthShell>
+  );
+}
