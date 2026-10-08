@@ -208,7 +208,7 @@ export function AppShell({ children, email, isPro = false, unreadNotifications =
         </form>
         <div className="ms-auto flex items-center gap-1.5">
           <LanguageToggle className="hidden items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 sm:flex" />
-          <span className="hidden sm:inline-flex"><ThemeToggle /></span>
+          <span className="inline-flex"><ThemeToggle /></span>
           <Link
             href="/notifications"
             aria-label={t.notificationsAria}

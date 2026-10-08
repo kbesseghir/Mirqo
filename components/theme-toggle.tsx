@@ -15,6 +15,7 @@ export function ThemeToggle() {
           : "light";
     setTheme(initial);
     document.documentElement.classList.toggle("dark", initial === "dark");
+    document.documentElement.style.colorScheme = initial;
     setMounted(true);
   }, []);
   function toggle() {
@@ -22,6 +23,7 @@ export function ThemeToggle() {
     setTheme(next);
     localStorage.setItem("mirqo-theme", next);
     document.documentElement.classList.toggle("dark", next === "dark");
+    document.documentElement.style.colorScheme = next;
   }
   return (
     <button
@@ -29,7 +31,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={theme === "dark" ? "Use light mode" : "Use dark mode"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
-      className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+      className="grid h-10 w-10 place-items-center rounded-full border border-slate-200/80 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
     >
       {mounted && theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
     </button>
