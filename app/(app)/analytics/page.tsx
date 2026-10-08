@@ -62,7 +62,7 @@ export default async function Page({ searchParams }: { searchParams: { currency?
   const netDebt=debtOwedToMe-debtOwedByMe;
 
   return (
-    <div className="mx-auto max-w-[1480px]">
+    <div className="mobile-analytics mx-auto max-w-[1480px]">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="page-kicker">{t.kicker}</p>

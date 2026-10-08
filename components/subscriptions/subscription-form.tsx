@@ -39,7 +39,7 @@ const services: Service[] = [
   { name: "Microsoft 365", category: "productivity" },
   { name: "Ooredoo", category: "telecom" },
 ];
-const PRESET_ACCENT_COLORS = ["#2563EB", "#06B6D4", "#8B5CF6", "#F59E0B", "#EF4444"];
+const PRESET_ACCENT_COLORS = ["#6D3FF2", "#15CFE0", "#8B5CF6", "#F59E0B", "#EF4444"];
 const currencies = SUPPORTED_CURRENCIES;
 const reminders = [1, 3, 7, 14] as const;
 type Billing = "monthly" | "yearly" | "trial";

@@ -116,7 +116,7 @@ export function SubscriptionsView({
   }, [category, commitmentFilter, displayed, filter, paidThisMonth, query, sortByName]);
 
   return (
-    <div className="mx-auto max-w-[1480px]">
+    <div className="mobile-subscriptions mx-auto max-w-[1480px]">
       <header className="flex items-end justify-between gap-4">
         <div>
           <p className="page-kicker">{t.yourRecurringServices}</p>
@@ -231,7 +231,7 @@ function SubscriptionRow({ subscription, paid, t, categories, common, commitment
   const cancelled = subscription.status === "cancelled";
   const status = statusFor(subscription, days, t, paid);
   return (
-    <Link href={`/subscriptions/${subscription.id}`} className="group grid items-center gap-4 bg-transparent p-5 transition hover:bg-white/70 sm:grid-cols-[minmax(200px,1.25fr)_minmax(100px,.55fr)_minmax(120px,.65fr)_minmax(140px,.7fr)_auto] sm:px-3">
+    <Link href={`/subscriptions/${subscription.id}`} className="subscription-row group grid items-center gap-4 bg-transparent p-5 transition hover:bg-white/70 sm:grid-cols-[minmax(200px,1.25fr)_minmax(100px,.55fr)_minmax(120px,.65fr)_minmax(140px,.7fr)_auto] sm:px-3">
       <div className="flex min-w-0 items-center gap-3.5"><ServiceLogo name={subscription.service_name} className="h-12 w-12 rounded-2xl" /><div className="min-w-0"><p className="truncate text-base font-bold">{subscription.service_name}</p><p className="mt-1 truncate text-sm text-slate-500">{billingCycleLabel(subscription, common)} {t.subscription}{subscription.commitment_type !== "subscription" ? ` · ${commitmentTypes[subscription.commitment_type]}` : ""}</p></div></div>
       <div className="flex items-center justify-between sm:block"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:hidden">{t.category}</span><span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${categoryTone(categoryFor(subscription.service_name))}`}>{categoryLabel(categoryFor(subscription.service_name), categories)}</span></div>
       <div className="flex items-center justify-between sm:block"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:block">{t.amount}</span><span className="text-[15px] font-black sm:mt-1.5 sm:block">{formatMoney(Number(subscription.amount), subscription.currency)} <small className="font-medium text-slate-400">/{cycleLabelShort(subscription, common)}</small></span></div>

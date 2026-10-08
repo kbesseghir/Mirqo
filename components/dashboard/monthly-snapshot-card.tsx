@@ -107,7 +107,7 @@ export function MonthlySnapshotCard({ currency, income, spending, recurring = 0,
     </section>;
   }
 
-  return <section id="monthly-snapshot" className={styles.snapshot}>
+  return <section id="monthly-snapshot" className={`${styles.snapshot} mobile-snapshot-page`}>
     <header className={styles.pageHeader}>
       <div><p className={styles.eyebrow}><Sparkles size={14} /> YOUR MONEY, IN FOCUS</p><h1>Monthly snapshot<span>.</span></h1><p className={styles.subtitle}>Enter your income, add daily expenses, and see what’s left.</p></div>
       <label className={styles.monthPicker}><CalendarDays size={18} /><span>{monthDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span><ChevronDown size={15} /><input aria-label="Snapshot month" type="month" value={month} onChange={e => { if (e.target.value) router.push(`/snapshot?month=${e.target.value}`); }} /></label>

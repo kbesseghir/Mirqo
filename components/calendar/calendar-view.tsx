@@ -88,7 +88,7 @@ export function CalendarView({
   }
 
   return (
-    <div className="mx-auto max-w-[1280px]">
+    <div className="mobile-calendar mx-auto max-w-[1280px]">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="page-kicker">{t.kicker}</p>

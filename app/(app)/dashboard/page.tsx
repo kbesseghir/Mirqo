@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock3,
   HandCoins,
@@ -92,11 +93,12 @@ export default async function Dashboard() {
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 4);
   const renewalGroups = timelineGroups(subscriptions, t);
+  const mobileUpcoming = renewalGroups.flatMap((group) => group.items);
   const name = user?.user_metadata.full_name?.toString() || user?.email?.split("@")[0] || "there";
   const billingLabels = getDictionary(locale).common;
 
   return (
-    <div className="mx-auto max-w-[1480px]">
+    <div className="mobile-dashboard mx-auto max-w-[1480px]">
       <header className="mb-7 flex items-end justify-between gap-4">
         <div>
           <p className="page-kicker">{t.yourSpace}</p>
@@ -104,7 +106,7 @@ export default async function Dashboard() {
           <p className="page-description">{t.everythingClear}</p>
         </div>
       </header>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-800">
+      <div className="beta-banner mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-xs text-blue-800">
         <span>MYRQO Beta — All Pro features are unlocked during early access.</span>
         <PwaInstallPrompt />
       </div>
@@ -125,7 +127,14 @@ export default async function Dashboard() {
             <Link href="/calendar" className="inline-flex min-h-10 items-center gap-1 rounded-full bg-slate-100 px-4 text-xs font-bold text-slate-600">{t.calendarView} <ChevronRight size={13} className="rtl:rotate-180" /></Link>
           </div>
           <div className="p-4 sm:p-6">
-            <div className="space-y-6">{renewalGroups.map((group) => <Timeline key={group.label} group={group} t={t} billingLabels={billingLabels} commitmentTypes={getDictionary(locale).commitmentTypes} />)}</div>
+            <div className="hidden space-y-6 sm:block">{renewalGroups.map((group) => <Timeline key={group.label} group={group} t={t} billingLabels={billingLabels} commitmentTypes={getDictionary(locale).commitmentTypes} />)}</div>
+            <div className="space-y-2 sm:hidden">
+              {mobileUpcoming.slice(0, 4).map((subscription) => <UpcomingMobileRow key={subscription.id} subscription={subscription} t={t} billingLabels={billingLabels} />)}
+              {mobileUpcoming.length > 4 && <details className="mobile-upcoming-details">
+                <summary><span>{locale === "ar" ? "عرض القائمة كاملة" : "See full list"}</span><ChevronDown size={16} /></summary>
+                <div className="mt-2 space-y-2">{mobileUpcoming.slice(4).map((subscription) => <UpcomingMobileRow key={subscription.id} subscription={subscription} t={t} billingLabels={billingLabels} />)}</div>
+              </details>}
+            </div>
             {!renewalGroups.length && <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center"><p className="text-sm font-semibold">{t.noRenewals31}</p><p className="mt-1 text-xs text-slate-500">{t.laterRenewals}</p></div>}
           </div>
         </section>
@@ -185,7 +194,7 @@ function Insights({
   t: T;
 }) {
   return (
-    <section className="workspace-section overflow-hidden">
+    <section className="dashboard-secondary workspace-section overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
         <h2 className="text-base font-bold">{t.insights}</h2>
         <p className="mt-1 text-xs text-slate-500">{t.insightsDesc}</p>
@@ -235,7 +244,7 @@ function DebtsCard({ debts, t }: { debts: Subscription[]; t: T }) {
     : "#E2E8F0";
 
   return (
-    <section className="workspace-section overflow-hidden">
+    <section className="dashboard-debts workspace-section overflow-hidden">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-5 sm:px-6">
         <div><h2 className="text-base font-bold">{t.personalDebts}</h2><p className="mt-1 text-xs text-slate-500">{t.personalDebtsDesc}</p></div>
         <HandCoins size={18} className="text-amber-500" />
@@ -302,7 +311,7 @@ function InsightRow({
 
 function RecentActivity({ subscriptions, t, locale }: { subscriptions: Subscription[]; t: T; locale: Locale }) {
   return (
-    <section className="workspace-section overflow-hidden">
+    <section className="dashboard-secondary workspace-section overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
         <h2 className="text-base font-bold">{t.recentActivity}</h2>
         <p className="mt-1 text-xs text-slate-500">{t.recentActivityDesc}</p>
@@ -366,6 +375,16 @@ function relativeActivityDate(value: string, t: T, locale: Locale) {
 
 function Timeline({ group, t, billingLabels, commitmentTypes }: { group: TimelineGroup; t: T; billingLabels: Dictionary["common"]; commitmentTypes: Dictionary["commitmentTypes"] }) {
   return <div><div className="mb-2.5 flex items-center gap-3"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">{group.label}</p><div className="h-px flex-1 bg-slate-100" /><span className="text-[10px] font-bold text-slate-400">{group.items.length}</span></div><div className="grid gap-2 lg:grid-cols-2">{group.items.map((subscription) => { const days = daysUntil(subscription.renewal_date); const billingLabel = subscription.billing_cycle === 'yearly' ? billingLabels.yearly : subscription.billing_cycle === 'trial' ? billingLabels.trial : billingLabels.monthly; const typeSuffix = subscription.commitment_type !== 'subscription' ? ' · ' + commitmentTypes[subscription.commitment_type] : ''; return <Link key={subscription.id} href={`/subscriptions/${subscription.id}`} className="group flex items-center gap-3 rounded-2xl bg-slate-50 p-3.5 transition hover:bg-blue-50/60"><ServiceLogo name={subscription.service_name} className="h-10 w-10 rounded-xl" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{subscription.service_name}</span><span className="mt-0.5 block text-[11px] text-slate-500"><span className={renewalTone(days)}>{renewalLabel(days, t)}</span> · {billingLabel}{typeSuffix}</span></span><span className="text-right"><span className="block text-sm font-black">{formatMoney(Number(subscription.amount), subscription.currency)}</span><span className="text-[10px] text-slate-400">{subscription.renewal_date}</span></span><ChevronRight size={14} className="text-slate-300 rtl:rotate-180" /></Link>; })}</div></div>;
+}
+
+function UpcomingMobileRow({ subscription, t, billingLabels }: { subscription: Subscription; t: T; billingLabels: Dictionary["common"] }) {
+  const days = daysUntil(subscription.renewal_date);
+  const billingLabel = subscription.billing_cycle === "yearly" ? billingLabels.yearly : subscription.billing_cycle === "trial" ? billingLabels.trial : billingLabels.monthly;
+  return <Link href={`/subscriptions/${subscription.id}`} className="flex min-h-16 items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2.5">
+    <ServiceLogo name={subscription.service_name} className="h-10 w-10 rounded-xl" />
+    <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{subscription.service_name}</strong><small className="mt-0.5 block truncate text-[11px] text-slate-500"><span className={renewalTone(days)}>{renewalLabel(days, t)}</span> · {billingLabel}</small></span>
+    <span className="shrink-0 text-end"><strong className="block text-sm">{formatMoney(Number(subscription.amount), subscription.currency)}</strong><small className="text-[10px] text-slate-400">{subscription.renewal_date}</small></span>
+  </Link>;
 }
 
 function EmptyDashboard({ t }: { t: T }) {
